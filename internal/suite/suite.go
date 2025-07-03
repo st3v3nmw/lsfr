@@ -4,6 +4,19 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/fatih/color"
+)
+
+var (
+	green          = color.New(color.FgGreen).SprintFunc()
+	red            = color.New(color.FgRed).SprintFunc()
+	yellow         = color.New(color.FgYellow).SprintFunc()
+	bold           = color.New(color.Bold).SprintFunc()
+	checkMark      = green("✓")
+	crossMark      = red("✗")
+	skipMark       = yellow("○")
+	celebrateEmoji = "🎉"
 )
 
 type Suite struct {
@@ -12,11 +25,13 @@ type Suite struct {
 	tests   []TestFunc
 }
 
-func New(name string) *Suite {
-	return &Suite{
-		name:  name,
-		tests: make([]TestFunc, 0),
-	}
+type TestFunc struct {
+	Name string
+	Fn   func(*Do)
+}
+
+func New() *Suite {
+	return &Suite{tests: make([]TestFunc, 0)}
 }
 
 func (s *Suite) Setup(fn func(*Do) error) *Suite {
@@ -29,60 +44,52 @@ func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 	return s
 }
 
-func (s *Suite) Run(ctx context.Context, binary string) Report {
-	result := Report{}
+func (s *Suite) Run(ctx context.Context, verbose bool) {
 	start := time.Now()
 
-	do := NewDo(binary)
+	do := NewDo(verbose)
 	defer do.Done()
 
+	failed := false
 	if s.setupFn != nil {
 		if err := s.setupFn(do); err != nil {
-			result.Failed = len(s.tests)
-			result.Errors = append(result.Errors, TestError{
-				TestName: "Setup",
-				Message:  err.Error(),
-			})
-
-			result.Duration = time.Since(start)
-			return result
+			// TODO: Print this error
+			failed = true
 		}
 	}
 
+	passed := 0
 	for _, test := range s.tests {
+		if failed {
+			fmt.Printf(" %s %s [skipped]\n", skipMark, test.Name)
+			continue
+		}
+
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					result.Failed++
-					result.Errors = append(result.Errors, TestError{
-						TestName: test.Name,
-						Message:  fmt.Sprintf("panic: %v", r),
-					})
+					failed = true
+					fmt.Printf(" %s %s\n", crossMark, test.Name)
 				}
 			}()
 
 			test.Fn(do)
-			result.Passed++
+
+			passed++
+			fmt.Printf(" %s %s\n", checkMark, test.Name)
 		}()
 	}
 
-	result.Duration = time.Since(start)
-	return result
-}
+	fmt.Println()
 
-type Report struct {
-	Passed   int
-	Failed   int
-	Errors   []TestError
-	Duration time.Duration
-}
+	total := len(s.tests)
+	if passed == total {
+		fmt.Printf("%s %s\n", bold("PASSED"), checkMark)
+		fmt.Printf("\nRun %s to advance to stage %d", yellow("'lsfr next'"), +1)
+	} else {
+		fmt.Printf("%d/%d tests passed", passed, total)
+	}
 
-type TestFunc struct {
-	Name string
-	Fn   func(*Do)
-}
-
-type TestError struct {
-	TestName string
-	Message  string
+	duration := time.Since(start).Round(time.Millisecond)
+	fmt.Printf(" (took %s)\n", duration)
 }

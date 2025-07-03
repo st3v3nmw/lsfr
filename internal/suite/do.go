@@ -8,65 +8,81 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/st3v3nmw/lsfr/pkg/safe"
 )
 
+const scriptPath = "./run.sh"
+
 type Do struct {
-	binary  string
-	running []*exec.Cmd
-	mu      sync.Mutex
+	services *safe.Map[string, *Service]
+	verbose  bool
 }
 
-func NewDo(binary string) *Do {
+type Service struct {
+	port int
+	cmd  *exec.Cmd
+}
+
+func NewDo(verbose bool) *Do {
 	return &Do{
-		binary:  binary,
-		running: make([]*exec.Cmd, 0),
+		services: safe.NewMap[string, *Service](),
+		verbose:  verbose,
 	}
 }
 
-func (do *Do) Run(args ...string) error {
-	cmd := exec.Command(do.binary, args...)
+func (do *Do) getService(service string) *Service {
+	if svc, exists := do.services.Get(service); exists {
+		return svc
+	}
+
+	panic(fmt.Sprintf("service %q not found", service))
+}
+
+func (do *Do) Run(service string, port int, args ...string) *Do {
+	cmd := exec.Command(scriptPath, args...)
 
 	err := cmd.Start()
 	if err != nil {
-		return err
+		panic(err.Error())
 	}
 
-	do.mu.Lock()
-	do.running = append(do.running, cmd)
-	do.mu.Unlock()
+	do.services.Set(service, &Service{port: port, cmd: cmd})
 
-	return nil
+	return do
 }
 
-func (do *Do) WaitForPort(port int) error {
+func (do *Do) WaitForPort(service string) {
+	svc := do.getService(service)
+
 	deadline := time.Now().Add(30 * time.Second)
 	interval := 5 * time.Millisecond
 
 	for time.Now().Before(deadline) {
 		time.Sleep(interval)
 
-		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", svc.port))
 		if err == nil {
 			conn.Close()
-			return nil
+			return
 		}
 
 		interval *= 2
 	}
 
-	return fmt.Errorf("timeout waiting for port %d", port)
+	panic(fmt.Sprintf("timeout waiting for port %d", svc.port))
 }
 
-func (do *Do) Concurrent(fns ...func()) {
+func (do *Do) Concurrently(fns ...func()) {
 	var wg sync.WaitGroup
 
 	for _, fn := range fns {
 		wg.Add(1)
 		go func(f func()) {
 			defer wg.Done()
+
 			f()
 		}(fn)
 	}
@@ -74,126 +90,83 @@ func (do *Do) Concurrent(fns ...func()) {
 	wg.Wait()
 }
 
+func (do *Do) Eventually(condition func() bool) {
+	deadline := time.Now().Add(30 * time.Second)
+	interval := 5 * time.Millisecond
+
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+
+		time.Sleep(interval)
+		interval *= 2
+	}
+
+	panic("Eventually condition failed after timeout")
+}
+
 func (do *Do) Done() {
-	do.mu.Lock()
-	defer do.mu.Unlock()
-
-	for _, cmd := range do.running {
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-	}
+	do.services.Range(func(_ string, svc *Service) bool {
+		svc.cmd.Process.Kill()
+		return true
+	})
 }
 
-func (do *Do) CLI(args ...string) *CLIResult {
-	cmd := exec.Command(do.binary, args...)
-
-	stdout, err := cmd.Output()
-	if err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
-			return &CLIResult{
-				DoErr:    DoErr{string(exitError.Stderr)},
-				exitCode: exitError.ExitCode(),
-			}
-		}
-
-		return &CLIResult{DoErr: DoErr{err.Error()}}
-	}
-
-	return &CLIResult{output: string(stdout)}
-}
-
-func (do *Do) HTTP(method, url string, body ...string) *HTTPResult {
+func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
+	svc := do.getService(service)
 	client := &http.Client{Timeout: 30 * time.Second}
 
-	bodyStr := strings.Join(body, "")
-	req, err := http.NewRequest(method, url, bytes.NewReader([]byte(bodyStr)))
+	var body []byte
+	if len(args) >= 1 {
+		body = []byte(args[0].(string))
+	}
+
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.port, path)
+	req, err := http.NewRequest(method, url, bytes.NewReader([]byte(body)))
 	if err != nil {
-		return &HTTPResult{DoErr: DoErr{err.Error()}}
+		return &HTTPAssert{ErrAssert: ErrAssert{err}}
+	}
+
+	if len(args) >= 2 {
+		headers := args[1].(map[string]string)
+		for k, v := range headers {
+			req.Header.Add(k, v)
+		}
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return &HTTPResult{DoErr: DoErr{err.Error()}}
+		return &HTTPAssert{ErrAssert: ErrAssert{err}}
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return &HTTPResult{
-			DoErr:      DoErr{err.Error()},
-			statusCode: resp.StatusCode,
-		}
+		return &HTTPAssert{ErrAssert: ErrAssert{err}}
 	}
 
-	return &HTTPResult{
+	return &HTTPAssert{
 		body:       string(responseBody),
 		statusCode: resp.StatusCode,
 	}
 }
 
-type DoErr struct {
-	err string
-}
+func (do *Do) Exec(args ...string) *CLIAssert {
+	cmd := exec.Command(scriptPath, args...)
 
-func (e *DoErr) Error(expected string) *DoErr {
-	if e.err != expected {
-		panic(fmt.Sprintf("expected err %q, got %q", expected, e.err))
+	stdout, err := cmd.Output()
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			return &CLIAssert{
+				output:   string(exitError.Stderr),
+				exitCode: exitError.ExitCode(),
+			}
+		}
+
+		return &CLIAssert{ErrAssert: ErrAssert{err}}
 	}
 
-	return e
-}
-
-type CLIResult struct {
-	DoErr
-	output   string
-	exitCode int
-}
-
-func (r *CLIResult) Got() *CLIResult {
-	return r
-}
-
-func (r *CLIResult) Output(expected string) *CLIResult {
-	if r.output != expected {
-		panic(fmt.Sprintf("expected output %q, got %q", expected, r.output))
-	}
-
-	return r
-}
-
-func (r *CLIResult) Exit(code int) *CLIResult {
-	if r.exitCode != code {
-		panic(fmt.Sprintf("expected exit code %d, got %d", code, r.exitCode))
-	}
-
-	return r
-}
-
-type HTTPResult struct {
-	DoErr
-	body       string
-	statusCode int
-}
-
-func (r *HTTPResult) Got() *HTTPResult {
-	return r
-}
-
-func (r *HTTPResult) Body(expected string) *HTTPResult {
-	if r.body != expected {
-		panic(fmt.Sprintf("expected body %q, got %q", expected, r.body))
-	}
-
-	return r
-}
-
-func (r *HTTPResult) Status(code int) *HTTPResult {
-	fmt.Printf("%#v\n", *r)
-	if r.statusCode != code {
-		panic(fmt.Sprintf("expected status code %d, got %d", code, r.statusCode))
-	}
-
-	return r
+	return &CLIAssert{output: string(stdout)}
 }
