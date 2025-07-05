@@ -58,9 +58,10 @@ echo "Replace this line with the command that runs your implementation"
 
 # README
 $ cat README.md
-# Key-Value Store Challenge
+# Distributed Key-Value Store Challenge
 
-Build a distributed key-value database from scratch. You'll start with a simple HTTP API and progressively add persistence, clustering, and fault tolerance.
+Build a distributed key-value database from scratch.
+You'll start with a simple HTTP API and progressively add persistence, clustering, and fault tolerance.
 
 ## Stages
 
@@ -74,11 +75,6 @@ Build a distributed key-value database from scratch. You'll start with a simple 
 1. Edit _run.sh_ to start your implementation
 2. Run _lsfr test_ to test the current stage
 3. Run _lsfr next_ when ready to advance
-
-Your server should listen on port 8888 and implement:
-1. PUT /kv/{key} - Store a value
-2. GET /kv/{key} - Retrieve a value
-3. DELETE /kv/{key} - Delete a value
 
 Good luck! 🚀
 ```
@@ -112,8 +108,6 @@ Running persistence: Data Persistence
 ✓ Maintains API compatibility
 
 PASSED ✓
-
-Your data now persists across restarts.
 
 Run 'lsfr next' to advance to clustering.
 
@@ -186,6 +180,25 @@ Consider trying another challenge @ lsfr.io/challenges
 
 ## Information Commands
 
+`lsfr status`
+
+```bash
+# Show current progress and challenge info
+$ lsfr status
+Distributed Key-Value Store
+
+Learn distributed systems by building a key-value database from scratch.
+You'll implement replication, consensus, and fault tolerance.
+
+Progress:
+✓ http-api          - HTTP API with GET/PUT/DELETE
+→ persistence       - Survive restarts and crashes
+  clustering        - Replication and eventual consistency
+  fault-tolerance   - Handle network partitions
+
+Implement persistence, then run 'lsfr test'.
+```
+
 `lsfr list`
 
 ```bash
@@ -198,24 +211,4 @@ Available challenges:
   load-balancer      - HTTP Load balancer (3 stages)
 
 Start with: lsfr new <challenge-name>
-```
-
-`lsfr status`
-
-```bash
-# Show current progress and challenge info
-$ lsfr status
-Challenge: key-value-store - Distributed Key-Value Store
-Current stage: persistence (2/4 stages)
-
-Learn distributed systems by building a key-value database from scratch.
-You'll implement replication, consensus, and fault tolerance.
-
-Progress:
-✓ http-api          - HTTP API with GET/PUT/DELETE
-→ persistence       - Survive restarts and crashes
-  clustering        - Replication and eventual consistency
-  fault-tolerance   - Handle network partitions
-
-Implement persistence, then run 'lsfr test'.
 ```

@@ -2,6 +2,7 @@ package suite
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -122,7 +123,11 @@ func (a *HTTPAssert) Status(code int) *HTTPAssert {
 		if a.requestBody != "" {
 			msg += fmt.Sprintf(" \"%s\"", a.requestBody)
 		}
-		msg += fmt.Sprintf("\n  Expected %d, got %d", code, a.responseStatus)
+		msg += fmt.Sprintf(
+			"\n  Expected %d %s, got %d %s",
+			code, http.StatusText(code),
+			a.responseStatus, http.StatusText(a.responseStatus),
+		)
 
 		msg += a.formatHelp()
 

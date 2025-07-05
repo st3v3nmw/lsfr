@@ -20,28 +20,22 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	// Parse config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("not in a challenge directory\nRun this command from a directory created with 'lsfr new <challenge>'")
+		return nil, fmt.Errorf("Not in a challenge directory\nRun this command from a directory created with 'lsfr new <challenge>'")
 	}
 
 	bytes, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("Failed to read config file: %w", err)
 	}
 
 	var cfg Config
 	if err := yaml.Unmarshal(bytes, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
+		return nil, fmt.Errorf("Failed to parse config file: %w", err)
 	}
 
 	if cfg.Stages.Completed == nil {
 		cfg.Stages.Completed = []string{}
-	}
-
-	// Validation
-	if cfg.Challenge == "" {
-		return nil, fmt.Errorf("challenge name cannot be empty")
 	}
 
 	return &cfg, nil

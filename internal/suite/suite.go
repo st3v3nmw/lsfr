@@ -50,7 +50,7 @@ func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 }
 
 // Run executes the test suite and displays results
-func (s *Suite) Run(ctx context.Context, stageKey, stageName, stageSummary string) {
+func (s *Suite) Run(ctx context.Context, stageKey, stageName string) {
 	fmt.Printf("Running %s: %s\n\n", stageKey, stageName)
 
 	do := NewDo()
@@ -107,7 +107,6 @@ func (s *Suite) Run(ctx context.Context, stageKey, stageName, stageSummary strin
 	total := len(s.tests)
 	if passed == total {
 		fmt.Printf("%s %s\n", bold("PASSED"), checkMark)
-		fmt.Printf("\n%s\n", stageSummary)
 		fmt.Printf("\nRun %s to advance to the next stage.\n", yellow("'lsfr next'"))
 	} else {
 		fmt.Printf("%s %s\n", bold("FAILED"), crossMark)

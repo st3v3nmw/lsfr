@@ -15,7 +15,7 @@ import (
 func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 	args := cmd.Args().Slice()
 	if len(args) == 0 {
-		return fmt.Errorf("challenge name is required\nUsage: lsfr new <challenge> [path]")
+		return fmt.Errorf("Challenge name is required\nUsage: lsfr new <challenge> [path]")
 	}
 
 	challengeKey := args[0]
@@ -30,13 +30,13 @@ func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 	// Validate that the challenge exists
 	challenge, err := registry.GetChallenge(challengeKey)
 	if err != nil {
-		return fmt.Errorf("unknown challenge: %s", challengeKey)
+		return fmt.Errorf("Unknown challenge: %s", challengeKey)
 	}
 
 	// Create directory if specified
 	if targetPath != "." {
 		if err := os.MkdirAll(targetPath, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+			return fmt.Errorf("Failed to create directory %s: %w", targetPath, err)
 		}
 	}
 
@@ -55,13 +55,13 @@ echo "Replace this line with the command that runs your implementation"
 #   ./my-program "$@"
 `
 	if err := os.WriteFile(runShPath, []byte(runShContent), 0755); err != nil {
-		return fmt.Errorf("failed to create run.sh: %w", err)
+		return fmt.Errorf("Failed to create run.sh: %w", err)
 	}
 
 	// Create README.md
 	readmePath := filepath.Join(targetPath, "README.md")
-	if err := os.WriteFile(readmePath, []byte(challenge.README), 0644); err != nil {
-		return fmt.Errorf("failed to create README.md: %w", err)
+	if err := os.WriteFile(readmePath, []byte(challenge.README()), 0644); err != nil {
+		return fmt.Errorf("Failed to create README.md: %w", err)
 	}
 
 	// Create lsfr.yaml
@@ -74,12 +74,12 @@ echo "Replace this line with the command that runs your implementation"
 	}
 	configPath := filepath.Join(targetPath, "lsfr.yaml")
 	if err := config.SaveTo(cfg, configPath); err != nil {
-		return fmt.Errorf("failed to create lsfr.yaml: %w", err)
+		return fmt.Errorf("Failed to create lsfr.yaml: %w", err)
 	}
 
 	// Output success message
 	if targetPath == "." {
-		fmt.Println("Created challenge in current directory")
+		fmt.Println("Created challenge in current directory.")
 	} else {
 		fmt.Printf("Created challenge in directory: %s\n", targetPath)
 	}
@@ -94,7 +94,7 @@ echo "Replace this line with the command that runs your implementation"
 		fmt.Printf("Implement %s stage, then run 'lsfr test'.\n", firstStageKey)
 	} else {
 		firstStageKey := challenge.StageOrder[0]
-		fmt.Printf("cd %s and implement %s stage, then run 'lsfr test'\n", targetPath, firstStageKey)
+		fmt.Printf("cd %s and implement %s stage, then run 'lsfr test'.\n", targetPath, firstStageKey)
 	}
 
 	return nil
@@ -103,7 +103,7 @@ echo "Replace this line with the command that runs your implementation"
 func TestChallenge(ctx context.Context, cmd *commands.Command) error {
 	// Check run.sh exists
 	if _, err := os.Stat("run.sh"); os.IsNotExist(err) {
-		return fmt.Errorf("run.sh not found\nCreate an executable run.sh script that starts your implementation")
+		return fmt.Errorf("run.sh not found\nCreate an executable run.sh script that starts your implementation.")
 	}
 
 	// Load configuration
@@ -126,13 +126,13 @@ func TestChallenge(ctx context.Context, cmd *commands.Command) error {
 		challengeKey = cfg.Challenge
 		stageKey = args[0]
 	default:
-		return fmt.Errorf("too many arguments\nUsage: lsfr test [stage]")
+		return fmt.Errorf("Too many arguments\nUsage: lsfr test [stage]")
 	}
 
 	// Validate
 	challenge, err := registry.GetChallenge(challengeKey)
 	if err != nil {
-		return fmt.Errorf("unknown challenge: %s", challengeKey)
+		return fmt.Errorf("Unknown challenge: %s", challengeKey)
 	}
 
 	stage, err := challenge.GetStage(stageKey)
@@ -146,12 +146,66 @@ func TestChallenge(ctx context.Context, cmd *commands.Command) error {
 
 	// Run tests
 	suite := stage.Fn()
-	suite.Run(ctx, stageKey, stage.Name, stage.Summary)
+	suite.Run(ctx, stageKey, stage.Name)
 
 	return nil
 }
 
 // TODO: Add `lsfr next` implementation here.
+
+func ShowStatus(ctx context.Context, cmd *commands.Command) error {
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	// Get challenge from registry
+	challenge, err := registry.GetChallenge(cfg.Challenge)
+	if err != nil {
+		return err
+	}
+
+	// Summary
+	fmt.Println(challenge.Name)
+	fmt.Println()
+
+	fmt.Println(challenge.Summary)
+	fmt.Println()
+
+	// Progress
+	fmt.Println("Progress:")
+	for _, stageKey := range challenge.StageOrder {
+		stage, err := challenge.GetStage(stageKey)
+		if err != nil {
+			continue
+		}
+
+		// Check if stage is completed
+		isCompleted := false
+		for _, completedStage := range cfg.Stages.Completed {
+			if completedStage == stageKey {
+				isCompleted = true
+				break
+			}
+		}
+
+		// Format stage line
+		if isCompleted {
+			fmt.Printf("✓ %-18s - %s\n", stageKey, stage.Name)
+		} else if stageKey == cfg.Stages.Current {
+			fmt.Printf("→ %-18s - %s\n", stageKey, stage.Name)
+		} else {
+			fmt.Printf("  %-18s - %s\n", stageKey, stage.Name)
+		}
+	}
+	fmt.Println()
+
+	// Next steps
+	fmt.Printf("Implement %s, then run 'lsfr test'.\n", cfg.Stages.Current)
+
+	return nil
+}
 
 func ListChallenges(ctx context.Context, cmd *commands.Command) error {
 	challenges := registry.GetAllChallenges()

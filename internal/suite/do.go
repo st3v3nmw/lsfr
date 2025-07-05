@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/st3v3nmw/lsfr/pkg/safe"
@@ -46,6 +47,7 @@ func (do *Do) getService(service string) *Service {
 // Run starts a service process using the run.sh script
 func (do *Do) Run(service string, port int, args ...string) *Do {
 	cmd := exec.Command(scriptPath, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	err := cmd.Start()
 	if err != nil {
@@ -118,12 +120,28 @@ func (do *Do) Eventually(condition func() bool) {
 
 // Done cleans up all running services
 func (do *Do) Done() {
-
 	do.services.Range(func(_ string, svc *Service) bool {
-		svc.cmd.Process.Kill()
+		pgid := svc.cmd.Process.Pid
+		err := syscall.Kill(-pgid, syscall.SIGTERM)
+		if err != nil {
+			fmt.Println(red("Error stopping service running @"), red(svc.port))
+			return true
+		}
+
+		done := make(chan error, 1)
+		go func() {
+			done <- svc.cmd.Wait()
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(30 * time.Second):
+			syscall.Kill(-pgid, syscall.SIGKILL)
+			<-done
+		}
+
 		return true
 	})
-
 }
 
 // HTTP makes an HTTP request to a service

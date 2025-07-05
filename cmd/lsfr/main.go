@@ -37,9 +37,9 @@ func main() {
 				Action: cli.ListChallenges,
 			},
 			{
-				Name:  "status",
-				Usage: "Show current progress",
-				// Action: showStatus,
+				Name:   "status",
+				Usage:  "Show current progress",
+				Action: cli.ShowStatus,
 			},
 		},
 	}

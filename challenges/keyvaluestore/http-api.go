@@ -5,49 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/st3v3nmw/lsfr/internal/registry"
 	"github.com/st3v3nmw/lsfr/internal/suite"
 )
-
-func init() {
-	challenge := &registry.Challenge{
-		Name:     "Distributed Key-Value Store",
-		Concepts: []string{"Storage Engines", "Replication", "Consensus", "Fault Tolerance"},
-		README: `# Key-Value Store Challenge
-
-Build a distributed key-value database from scratch. You'll start with a simple HTTP API and progressively add persistence, clustering, and fault tolerance.
-
-## Stages
-
-1. **http-api** - Basic GET/PUT/DELETE operations
-2. **persistence** - Data survives restarts and crashes
-3. **clustering** - Multi-node replication
-4. **fault-tolerance** - Handle network partitions
-
-## Getting Started
-
-1. Edit _run.sh_ to start your implementation
-2. Run _lsfr test_ to test the current stage
-3. Run _lsfr next_ when ready to advance
-
-Your server should listen on port 8888 and implement:
-1. PUT /kv/{key} - Store a value
-2. GET /kv/{key} - Retrieve a value
-3. DELETE /kv/{key} - Delete a value
-
-Good luck! 🚀
-`,
-	}
-
-	challenge.AddStage(
-		"http-api",
-		"Basic HTTP API",
-		"HTTP API with GET/PUT/DELETE",
-		HTTPAPIStage,
-	)
-
-	registry.RegisterChallenge("key-value-store", challenge)
-}
 
 func HTTPAPIStage() suite.Suite {
 	return *suite.New().
