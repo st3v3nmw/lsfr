@@ -91,6 +91,7 @@ _lsfr test [<stage>]_
 # Test current stage (reads from lsfr.yaml)
 $ lsfr test
 Running http-api: Basic Operations
+
 ✓ PUT operations
 ✓ GET operations
 ✓ DELETE operations
@@ -105,6 +106,7 @@ Run 'lsfr next' to advance to persistence.
 # Test specific stage
 $ lsfr test persistence
 Running persistence: Data Persistence
+
 ✓ Data survives restart
 ✓ Handles crash recovery
 ✓ Maintains API compatibility
@@ -118,6 +120,7 @@ Run 'lsfr next' to advance to clustering.
 # When tests fail, show detailed info automatically
 $ lsfr test http-api
 Running http-api: Basic Operations
+
 ✓ PUT operations
 ✓ GET operations
 ✗ Error handling
@@ -177,9 +180,9 @@ Run 'lsfr test' to see what's failing.
 $ lsfr next
 You've completed all stages for key-value-store! 🎉
 
-Share your work: tag your repo with 'lsfr-go' (or your language)
+Share your work: tag your repo with 'lsfr-go' (or your language).
 
-Consider trying another challenge: lsfr.io/challenges
+Consider trying another challenge @ lsfr.io/challenges
 ```
 
 ## Information Commands

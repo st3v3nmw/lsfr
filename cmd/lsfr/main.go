@@ -23,16 +23,8 @@ func main() {
 			{
 				Name:      "test",
 				Usage:     "Test your implementation",
-				ArgsUsage: "[challenge] <stage>",
-				Flags: []commands.Flag{
-					&commands.BoolFlag{
-						Name:    "verbose",
-						Usage:   "Show detailed test output",
-						Aliases: []string{"v"},
-						Value:   false,
-					},
-				},
-				Action: cli.TestChallenge,
+				ArgsUsage: "[stage]",
+				Action:    cli.TestChallenge,
 			},
 			{
 				Name:  "next",
@@ -58,6 +50,7 @@ func main() {
 		},
 	}
 
+	log.SetFlags(0)
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}

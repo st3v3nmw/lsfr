@@ -9,9 +9,14 @@ import (
 
 const configPath = "lsfr.yaml"
 
+type Stages struct {
+	Current   string   `yaml:"current"`
+	Completed []string `yaml:"completed"`
+}
+
 type Config struct {
 	Challenge string `yaml:"challenge"`
-	Stage     int    `yaml:"stage"`
+	Stages    Stages `yaml:"stages"`
 }
 
 func Load() (*Config, error) {
@@ -30,13 +35,13 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
+	if cfg.Stages.Completed == nil {
+		cfg.Stages.Completed = []string{}
+	}
+
 	// Validation
 	if cfg.Challenge == "" {
 		return nil, fmt.Errorf("challenge name cannot be empty")
-	}
-
-	if cfg.Stage <= 0 {
-		cfg.Stage = 1
 	}
 
 	return &cfg, nil

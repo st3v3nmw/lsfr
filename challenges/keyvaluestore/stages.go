@@ -39,7 +39,8 @@ Good luck! 🚀`,
 	}
 
 	challenge.AddStage(
-		"Basic Operations",
+		"http-api",
+		"Basic HTTP API",
 		"HTTP API with GET/PUT/DELETE",
 		Stage1,
 	)

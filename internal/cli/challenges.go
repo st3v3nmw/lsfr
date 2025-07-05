@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	_ "github.com/st3v3nmw/lsfr/challenges"
 	"github.com/st3v3nmw/lsfr/internal/config"
@@ -68,7 +67,10 @@ echo "Replace this line with the command that runs your implementation"
 	// Create lsfr.yaml
 	cfg := &config.Config{
 		Challenge: challengeKey,
-		Stage:     1,
+		Stages: config.Stages{
+			Current:   challenge.StageOrder[0],
+			Completed: []string{},
+		},
 	}
 	configPath := filepath.Join(targetPath, "lsfr.yaml")
 	if err := config.SaveTo(cfg, configPath); err != nil {
@@ -88,19 +90,11 @@ echo "Replace this line with the command that runs your implementation"
 	fmt.Println()
 
 	if targetPath == "." {
-		if challenge.Len() > 0 {
-			stage, _ := challenge.GetStage(1)
-			fmt.Printf("Implement %s stage, then run 'lsfr test'.\n", stage.Name)
-		} else {
-			fmt.Println("Run 'lsfr test' to get started.")
-		}
+		firstStageKey := challenge.StageOrder[0]
+		fmt.Printf("Implement %s stage, then run 'lsfr test'.\n", firstStageKey)
 	} else {
-		if challenge.Len() > 0 {
-			stage, _ := challenge.GetStage(1)
-			fmt.Printf("cd %s and implement %s stage, then run 'lsfr test'\n", targetPath, stage.Name)
-		} else {
-			fmt.Printf("cd %s and run 'lsfr test' to get started.\n", targetPath)
-		}
+		firstStageKey := challenge.StageOrder[0]
+		fmt.Printf("cd %s and implement %s stage, then run 'lsfr test'\n", targetPath, firstStageKey)
 	}
 
 	return nil
@@ -119,32 +113,20 @@ func TestChallenge(ctx context.Context, cmd *commands.Command) error {
 	}
 
 	var challengeKey string
-	var stageNum int
+	var stageKey string
 
 	args := cmd.Args().Slice()
 	switch cmd.NArg() {
 	case 0:
 		// Use current stage from config
 		challengeKey = cfg.Challenge
-		stageNum = cfg.Stage
+		stageKey = cfg.Stages.Current
 	case 1:
 		// lsfr test <stage>
 		challengeKey = cfg.Challenge
-		var err error
-		stageNum, err = strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("invalid stage number: %s", args[0])
-		}
-	case 2:
-		// lsfr test <challenge> <stage>
-		challengeKey = args[0]
-		var err error
-		stageNum, err = strconv.Atoi(args[1])
-		if err != nil {
-			return fmt.Errorf("invalid stage number: %s", args[1])
-		}
+		stageKey = args[0]
 	default:
-		return fmt.Errorf("too many arguments\nUsage: lsfr test [challenge] <stage>")
+		return fmt.Errorf("too many arguments\nUsage: lsfr test [stage]")
 	}
 
 	// Validate
@@ -153,22 +135,18 @@ func TestChallenge(ctx context.Context, cmd *commands.Command) error {
 		return fmt.Errorf("unknown challenge: %s", challengeKey)
 	}
 
-	numStages := challenge.Len()
-	if stageNum < 1 || stageNum > numStages {
-		return fmt.Errorf("stage %d does not exist for %s\nAvailable stages: 1-%d",
-			stageNum, challenge.Name, numStages)
-	}
-
-	stage, err := challenge.GetStage(stageNum)
+	stage, err := challenge.GetStage(stageKey)
 	if err != nil {
-		return err
+		msg := "\nAvailable stages:\n"
+		for _, stage := range challenge.StageOrder {
+			msg += fmt.Sprintf("- %s\n", stage)
+		}
+		return fmt.Errorf("%w\n%s", err, msg)
 	}
 
 	// Run tests
-	fmt.Printf("Running stage %d: %s\n\n", stageNum, stage.Name)
-
-	fn := stage.Fn()
-	fn.Run(ctx, cmd.Bool("verbose"))
+	suite := stage.Fn()
+	suite.Run(ctx, stageKey, stage.Name, stage.Summary)
 
 	return nil
 }

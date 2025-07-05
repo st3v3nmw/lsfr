@@ -18,7 +18,6 @@ const scriptPath = "./run.sh"
 
 type Do struct {
 	services *safe.Map[string, *Service]
-	verbose  bool
 }
 
 type Service struct {
@@ -26,10 +25,9 @@ type Service struct {
 	cmd  *exec.Cmd
 }
 
-func NewDo(verbose bool) *Do {
+func NewDo() *Do {
 	return &Do{
 		services: safe.NewMap[string, *Service](),
-		verbose:  verbose,
 	}
 }
 
@@ -49,10 +47,6 @@ func (do *Do) Run(service string, port int, args ...string) *Do {
 		panic(err.Error())
 	}
 
-	if do.verbose {
-		fmt.Printf("  Process ID: %d\n", cmd.Process.Pid)
-	}
-
 	do.services.Set(service, &Service{port: port, cmd: cmd})
 
 	return do
@@ -61,23 +55,14 @@ func (do *Do) Run(service string, port int, args ...string) *Do {
 func (do *Do) WaitForPort(service string) {
 	svc := do.getService(service)
 
-	if do.verbose {
-		fmt.Printf("  Waiting for port %d...\n", svc.port)
-	}
-
 	deadline := time.Now().Add(30 * time.Second)
 	interval := 5 * time.Millisecond
-	start := time.Now()
-
 	for time.Now().Before(deadline) {
 		time.Sleep(interval)
 
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", svc.port))
 		if err == nil {
 			conn.Close()
-			if do.verbose {
-				fmt.Printf("  Port %d ready after %v\n", svc.port, time.Since(start).Round(time.Millisecond))
-			}
 			return
 		}
 
@@ -124,21 +109,12 @@ func (do *Do) Eventually(condition func() bool) {
 }
 
 func (do *Do) Done() {
-	if do.verbose {
-		fmt.Printf("Cleaning up...\n")
-	}
 
 	do.services.Range(func(_ string, svc *Service) bool {
-		if do.verbose {
-			fmt.Printf("  Stopping process %d\n", svc.cmd.Process.Pid)
-		}
 		svc.cmd.Process.Kill()
 		return true
 	})
 
-	if do.verbose {
-		fmt.Printf("  Cleanup complete\n")
-	}
 }
 
 func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
@@ -152,14 +128,6 @@ func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
 
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.port, path)
 	req, err := http.NewRequest(method, url, bytes.NewReader([]byte(body)))
-
-	if do.verbose {
-		fmt.Printf("  → %s %s", method, url)
-		if len(body) > 0 {
-			fmt.Printf(" %q", string(body))
-		}
-		fmt.Println()
-	}
 
 	if err != nil {
 		return &HTTPAssert{ErrAssert: ErrAssert{err}}
@@ -181,14 +149,6 @@ func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return &HTTPAssert{ErrAssert: ErrAssert{err}}
-	}
-
-	if do.verbose {
-		fmt.Printf("  ← %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
-		if len(responseBody) > 0 {
-			fmt.Printf(" %q", string(responseBody))
-		}
-		fmt.Println()
 	}
 
 	return &HTTPAssert{

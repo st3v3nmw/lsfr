@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/fatih/color"
 )
@@ -16,12 +15,10 @@ var (
 	bold           = color.New(color.Bold).SprintFunc()
 	checkMark      = green("✓")
 	crossMark      = red("✗")
-	skipMark       = yellow("○")
 	celebrateEmoji = "🎉"
 )
 
 type Suite struct {
-	name    string
 	setupFn func(*Do) error
 	tests   []TestFunc
 }
@@ -45,23 +42,17 @@ func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 	return s
 }
 
-func (s *Suite) Run(ctx context.Context, verbose bool) {
-	start := time.Now()
+func (s *Suite) Run(ctx context.Context, stageKey, stageName, stageSummary string) {
+	fmt.Printf("Running %s: %s\n\n", stageKey, stageName)
 
-	if verbose {
-		fmt.Printf("Starting your implementation...\n")
-		fmt.Printf("  Executing: %s\n", "./run.sh")
-	}
-
-	do := NewDo(verbose)
+	do := NewDo()
 	defer do.Done()
 
-	failed := false
 	if s.setupFn != nil {
 		if err := s.setupFn(do); err != nil {
 			fmt.Printf("%s Setup failed\n", crossMark)
 			fmt.Printf("   %s\n", err)
-			
+
 			// Add actionable guidance based on error type
 			if strings.Contains(err.Error(), "permission denied") {
 				fmt.Printf("   Try: %s\n", yellow("chmod +x run.sh"))
@@ -73,39 +64,39 @@ func (s *Suite) Run(ctx context.Context, verbose bool) {
 				fmt.Printf("   - Server crashing during startup\n")
 				fmt.Printf("   Debug with: %s and check for error messages\n", yellow("./run.sh"))
 			}
-			
-			failed = true
 		}
 	}
 
 	passed := 0
+	failed := false
 	for _, test := range s.tests {
 		if failed {
-			fmt.Printf(" %s %s [skipped]\n", skipMark, test.Name)
-			continue
+			break
 		}
 
 		func() {
 			defer func() {
 				if err := recover(); err != nil {
-					failed = true
-					fmt.Printf(" %s %s\n", crossMark, test.Name)
-					
+					fmt.Printf("%s %s\n", crossMark, test.Name)
+					fmt.Println()
+
 					// Format error message with proper indentation
 					errorMsg := fmt.Sprintf("%s", err)
 					lines := strings.Split(errorMsg, "\n")
 					for _, line := range lines {
 						if line != "" {
-							fmt.Printf("   %s\n", line)
+							fmt.Printf("  %s\n", line)
 						}
 					}
+
+					failed = true
 				}
 			}()
 
 			test.Fn(do)
 
 			passed++
-			fmt.Printf(" %s %s\n", checkMark, test.Name)
+			fmt.Printf("%s %s\n", checkMark, test.Name)
 		}()
 	}
 
@@ -114,17 +105,9 @@ func (s *Suite) Run(ctx context.Context, verbose bool) {
 	total := len(s.tests)
 	if passed == total {
 		fmt.Printf("%s %s\n", bold("PASSED"), checkMark)
-		fmt.Printf("\nRun %s to advance to the next stage", yellow("'lsfr next'"))
+		fmt.Printf("\n%s\n", stageSummary)
+		fmt.Printf("\nRun %s to advance to the next stage.\n", yellow("'lsfr next'"))
 	} else {
-		fmt.Printf("\n%s %d/%d tests passed\n", bold("FAILED"), passed, total)
-		
-		// Add guidance based on failure patterns
-		if passed == 0 {
-			fmt.Printf("\nYour implementation might not be running correctly.\n")
-			fmt.Printf("Try running %s directly to see any error messages.\n", yellow("./run.sh"))
-		}
+		fmt.Printf("%s %s\n", bold("FAILED"), crossMark)
 	}
-
-	duration := time.Since(start).Round(time.Millisecond)
-	fmt.Printf(" (took %s)\n", duration)
 }
