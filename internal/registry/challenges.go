@@ -12,6 +12,7 @@ type Challenge struct {
 	Name     string
 	Concepts []string
 	Stages   []*Stage
+	README   string
 }
 
 type Stage struct {
@@ -31,7 +32,6 @@ func (c *Challenge) AddStage(name, summary string, fn StageFunc) {
 }
 
 func (c *Challenge) GetStage(number int) (*Stage, error) {
-
 	if number > len(c.Stages) || number < 1 {
 		return nil, fmt.Errorf("stage %d not found for challenge %q", number, c.Name)
 	}

@@ -13,6 +13,29 @@ func init() {
 	challenge := &registry.Challenge{
 		Name:     "Distributed Key-Value Store",
 		Concepts: []string{"Storage Engines", "Replication", "Consensus", "Fault Tolerance"},
+		README: `# Distributed Key-Value Store
+
+Build a distributed key-value database from scratch. You'll start with a simple HTTP API and progressively add persistence, clustering, and fault tolerance.
+
+## Stages
+
+1. **http-api** - Basic GET/PUT/DELETE operations
+2. **persistence** - Data survives restarts and crashes
+3. **clustering** - Multi-node replication
+4. **fault-tolerance** - Handle network partitions
+
+Your server should listen on port 8888 and implement:
+- ` + "`PUT /kv/{key}`" + ` - Store a value
+- ` + "`GET /kv/{key}`" + ` - Retrieve a value
+- ` + "`DELETE /kv/{key}`" + ` - Delete a value` + `
+
+## Getting Started
+
+1. Edit ` + "`run.sh`" + ` to start your implementation
+2. Run ` + "`lsfr test`" + ` to test the current stage
+3. Run ` + "`lsfr next`" + ` when ready to advance
+
+Good luck! 🚀`,
 	}
 
 	challenge.AddStage(

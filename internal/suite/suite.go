@@ -3,6 +3,7 @@ package suite
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -47,13 +48,32 @@ func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 func (s *Suite) Run(ctx context.Context, verbose bool) {
 	start := time.Now()
 
+	if verbose {
+		fmt.Printf("Starting your implementation...\n")
+		fmt.Printf("  Executing: %s\n", "./run.sh")
+	}
+
 	do := NewDo(verbose)
 	defer do.Done()
 
 	failed := false
 	if s.setupFn != nil {
 		if err := s.setupFn(do); err != nil {
-			// TODO: Print this error
+			fmt.Printf("%s Setup failed\n", crossMark)
+			fmt.Printf("   %s\n", err)
+			
+			// Add actionable guidance based on error type
+			if strings.Contains(err.Error(), "permission denied") {
+				fmt.Printf("   Try: %s\n", yellow("chmod +x run.sh"))
+			} else if strings.Contains(err.Error(), "no such file") {
+				fmt.Printf("   Create an executable run.sh script that runs your implementation\n")
+			} else if strings.Contains(err.Error(), "connection refused") {
+				fmt.Printf("   Possible issues:\n")
+				fmt.Printf("   - Server not starting on the expected port\n")
+				fmt.Printf("   - Server crashing during startup\n")
+				fmt.Printf("   Debug with: %s and check for error messages\n", yellow("./run.sh"))
+			}
+			
 			failed = true
 		}
 	}
@@ -67,9 +87,18 @@ func (s *Suite) Run(ctx context.Context, verbose bool) {
 
 		func() {
 			defer func() {
-				if r := recover(); r != nil {
+				if err := recover(); err != nil {
 					failed = true
 					fmt.Printf(" %s %s\n", crossMark, test.Name)
+					
+					// Format error message with proper indentation
+					errorMsg := fmt.Sprintf("%s", err)
+					lines := strings.Split(errorMsg, "\n")
+					for _, line := range lines {
+						if line != "" {
+							fmt.Printf("   %s\n", line)
+						}
+					}
 				}
 			}()
 
@@ -85,9 +114,15 @@ func (s *Suite) Run(ctx context.Context, verbose bool) {
 	total := len(s.tests)
 	if passed == total {
 		fmt.Printf("%s %s\n", bold("PASSED"), checkMark)
-		fmt.Printf("\nRun %s to advance to stage %d", yellow("'lsfr next'"), +1)
+		fmt.Printf("\nRun %s to advance to the next stage", yellow("'lsfr next'"))
 	} else {
-		fmt.Printf("%d/%d tests passed", passed, total)
+		fmt.Printf("\n%s %d/%d tests passed\n", bold("FAILED"), passed, total)
+		
+		// Add guidance based on failure patterns
+		if passed == 0 {
+			fmt.Printf("\nYour implementation might not be running correctly.\n")
+			fmt.Printf("Try running %s directly to see any error messages.\n", yellow("./run.sh"))
+		}
 	}
 
 	duration := time.Since(start).Round(time.Millisecond)

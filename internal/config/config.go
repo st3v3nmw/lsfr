@@ -43,12 +43,16 @@ func Load() (*Config, error) {
 }
 
 func Save(cfg *Config) error {
+	return SaveTo(cfg, configPath)
+}
+
+func SaveTo(cfg *Config, path string) error {
 	bytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to serialize config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, bytes, 0644); err != nil {
+	if err := os.WriteFile(path, bytes, 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
