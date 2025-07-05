@@ -24,22 +24,22 @@ func main() {
 				Name:      "test",
 				Usage:     "Test current or specific stage",
 				ArgsUsage: "[stage]",
-				Action:    cli.TestChallenge,
+				Action:    cli.TestStage,
 			},
 			{
-				Name:  "next",
-				Usage: "Advance to the next stage",
-				// Action: nextStage,
-			},
-			{
-				Name:   "list",
-				Usage:  "List available challenges",
-				Action: cli.ListChallenges,
+				Name:   "next",
+				Usage:  "Advance to the next stage",
+				Action: cli.NextStage,
 			},
 			{
 				Name:   "status",
 				Usage:  "Show current progress",
 				Action: cli.ShowStatus,
+			},
+			{
+				Name:   "list",
+				Usage:  "List available challenges",
+				Action: cli.ListChallenges,
 			},
 		},
 	}

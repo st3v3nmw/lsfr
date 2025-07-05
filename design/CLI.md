@@ -1,6 +1,6 @@
 # CLI
 
-lsfr is a CLI tool for learning to build complex systems from scratch. Take on challenges like distributed databases, message queues, load balancers, or even LLMs by implementing them step-by-step through progressive tests.
+lsfr is a CLI tool for learning how to build complex systems from scratch. It helps developers take on challenges like distributed databases, message queues, load balancers, or even LLMs by implementing them step-by-step through progressive tests.
 
 ## Philosophy
 
@@ -18,8 +18,8 @@ lsfr is a CLI tool for learning to build complex systems from scratch. Take on c
 
 ```bash
 # Basic usage (defaults to current directory)
-$ lsfr new key-value-store
-Created challenge in current directory
+$ lsfr new kv-store
+Created challenge in current directory.
   run.sh       - Your implementation entry point
   README.md    - Challenge overview and requirements
   lsfr.yaml    - Tracks your progress
@@ -27,7 +27,7 @@ Created challenge in current directory
 Implement http-api stage, then run 'lsfr test'.
 
 # Specify custom path
-$ lsfr new key-value-store my-kv-store
+$ lsfr new kv-store my-kv-store
 Created challenge in directory: ./my-kv-store
   run.sh       - Your implementation entry point
   README.md    - Challenge overview and requirements
@@ -37,7 +37,7 @@ cd my-kv-store and implement http-api stage, then run 'lsfr test'.
 
 # State tracking & config
 $ cat lsfr.yaml
-challenge: key-value-store
+challenge: kv-store
 stages:
   current: http-api
   completed:
@@ -46,11 +46,11 @@ stages:
 $ cat run.sh
 #!/bin/bash
 
-# This script runs your implementation
+# This script builds and runs your implementation
 # lsfr will execute this script to start your program
 # "$@" passes any command-line arguments from lsfr to your program
 
-echo "Replace this line with the command that runs your implementation"
+echo "Replace this line with the command that runs your implementation."
 # Examples:
 #   go run ./cmd/server "$@"
 #   python main.py "$@"
@@ -65,16 +65,16 @@ You'll start with a simple HTTP API and progressively add persistence, clusterin
 
 ## Stages
 
-1. **http-api** - Basic GET/PUT/DELETE operations
+1. **http-api** - HTTP API with GET/PUT/DELETE Operations
 2. **persistence** - Data survives restarts and crashes
 3. **clustering** - Multi-node replication
 4. **fault-tolerance** - Handle network partitions
 
 ## Getting Started
 
-1. Edit _run.sh_ to start your implementation
-2. Run _lsfr test_ to test the current stage
-3. Run _lsfr next_ when ready to advance
+1. Edit _run.sh_ to start your implementation.
+2. Run _lsfr test_ to test the current stage.
+3. Run _lsfr next_ when ready to advance.
 
 Good luck! 🚀
 ```
@@ -128,9 +128,11 @@ PUT http://127.0.0.1:8888/kv/ "foo"
 
 FAILED ✗
 
+Read the guide: lsfr.io/c/kv-store/http-api
+
 # Stage that doesn't exist
 $ lsfr test unknown
-Stage 'unknown' does not exist for key-value-store.
+Stage 'unknown' does not exist for kv-store.
 
 Available stages:
   http-api
@@ -148,16 +150,13 @@ Available stages:
 $ lsfr next
 Advanced to persistence: Data Persistence
 
-Your implementation must now:
-- Persist data across restarts
-- Handle crash recovery
-- Maintain the same HTTP API
+Read the guide: lsfr.io/c/kv-store/persistence
 
-Run 'lsfr test' when ready
+Run 'lsfr test' when ready.
 
 # Update state/config file
 $ cat lsfr.yaml
-challenge: key-value-store
+challenge: kv-store
 stages:
   current: persistence
   completed:
@@ -165,17 +164,28 @@ stages:
 
 # Try to advance without passing current stage
 $ lsfr next
-Complete http-api before advancing.
+Running http-api: Basic Operations
 
-Run 'lsfr test' to see what's failing.
+✓ PUT operations
+✗ GET operations
+
+GET http://127.0.0.1:8888/kv/foo
+  Expected 200 OK, got 404 Not Found
+
+  Your server should return stored values with GET requests.
+  Ensure your key-value storage and retrieval logic is working correctly.
+
+FAILED ✗
+
+Complete http-api before advancing.
 
 # Already at final stage
 $ lsfr next
-You've completed all stages for key-value-store! 🎉
+You've completed all stages for kv-store! 🎉
 
 Share your work: tag your repo with 'lsfr-go' (or your language).
 
-Consider trying another challenge @ lsfr.io/challenges
+Consider trying another challenge at lsfr.io/challenges.
 ```
 
 ## Information Commands
@@ -196,6 +206,8 @@ Progress:
   clustering        - Replication and eventual consistency
   fault-tolerance   - Handle network partitions
 
+Read the guide: lsfr.io/c/kv-store/http-api
+
 Implement persistence, then run 'lsfr test'.
 ```
 
@@ -206,7 +218,7 @@ Implement persistence, then run 'lsfr test'.
 $ lsfr list
 Available challenges:
 
-  key-value-store    - Distributed key-value store (4 stages)
+  kv-store           - Distributed key-value store (4 stages)
   message-queue      - Distributed message queue (3 stages)
   load-balancer      - HTTP Load balancer (3 stages)
 

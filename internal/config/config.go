@@ -9,16 +9,19 @@ import (
 
 const configPath = "lsfr.yaml"
 
+// Stages tracks the current and completed challenge stages
 type Stages struct {
 	Current   string   `yaml:"current"`
 	Completed []string `yaml:"completed"`
 }
 
+// Config represents the lsfr.yaml configuration file structure
 type Config struct {
 	Challenge string `yaml:"challenge"`
 	Stages    Stages `yaml:"stages"`
 }
 
+// Load reads and parses the lsfr.yaml configuration file
 func Load() (*Config, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Not in a challenge directory\nRun this command from a directory created with 'lsfr new <challenge>'")
@@ -41,18 +44,20 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
+// Save writes the configuration to the default lsfr.yaml file
 func Save(cfg *Config) error {
 	return SaveTo(cfg, configPath)
 }
 
+// SaveTo writes the configuration to the specified path
 func SaveTo(cfg *Config, path string) error {
 	bytes, err := yaml.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to serialize config: %w", err)
+		return fmt.Errorf("Failed to serialize config: %w", err)
 	}
 
 	if err := os.WriteFile(path, bytes, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+		return fmt.Errorf("Failed to write config file: %w", err)
 	}
 
 	return nil

@@ -9,12 +9,10 @@ import (
 // Assert interface that all assertion types must implement
 // T is the concrete assertion type (HTTPAssert, CLIAssert, etc.)
 type Assert[T any] interface {
-	// Error handling
 	NoError() *ErrAssert
 	Error(message string) *ErrAssert
 	Got() T
 
-	// Help
 	setHelp(message string)
 	formatHelp() string
 	WithHelp(message string) T
@@ -50,7 +48,6 @@ func (a *ErrAssert) Error(message string) *ErrAssert {
 	return a
 }
 
-// Help provides shared help text functionality
 type Help struct {
 	help string
 }
@@ -75,12 +72,10 @@ type HTTPAssert struct {
 	ErrAssert
 	Help
 
-	// Request fields
 	requestMethod string
 	requestURL    string
 	requestBody   string
 
-	// Response fields
 	responseBody   string
 	responseStatus int
 }

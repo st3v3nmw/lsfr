@@ -3,19 +3,17 @@ package suite
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/fatih/color"
 )
 
 var (
-	green          = color.New(color.FgGreen).SprintFunc()
-	red            = color.New(color.FgRed).SprintFunc()
-	yellow         = color.New(color.FgYellow).SprintFunc()
-	bold           = color.New(color.Bold).SprintFunc()
-	checkMark      = green("✓")
-	crossMark      = red("✗")
-	celebrateEmoji = "🎉"
+	green     = color.New(color.FgGreen).SprintFunc()
+	red       = color.New(color.FgRed).SprintFunc()
+	yellow    = color.New(color.FgYellow).SprintFunc()
+	bold      = color.New(color.Bold).SprintFunc()
+	checkMark = green("✓")
+	crossMark = red("✗")
 )
 
 // Suite represents a test suite with setup and test functions
@@ -50,7 +48,7 @@ func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 }
 
 // Run executes the test suite and displays results
-func (s *Suite) Run(ctx context.Context, stageKey, stageName string) {
+func (s *Suite) Run(ctx context.Context, challengeKey, stageKey, stageName string) bool {
 	fmt.Printf("Running %s: %s\n\n", stageKey, stageName)
 
 	do := NewDo()
@@ -60,21 +58,10 @@ func (s *Suite) Run(ctx context.Context, stageKey, stageName string) {
 		if err := s.setupFn(do); err != nil {
 			fmt.Printf("%s Setup failed\n", crossMark)
 			fmt.Printf("   %s\n", err)
-
-			// Add actionable guidance based on error type
-			if strings.Contains(err.Error(), "permission denied") {
-				fmt.Printf("   Try: %s\n", yellow("chmod +x run.sh"))
-			} else if strings.Contains(err.Error(), "no such file") {
-				fmt.Printf("   Create an executable run.sh script that runs your implementation\n")
-			} else if strings.Contains(err.Error(), "connection refused") {
-				fmt.Printf("   Possible issues:\n")
-				fmt.Printf("   - Server not starting on the expected port\n")
-				fmt.Printf("   - Server crashing during startup\n")
-				fmt.Printf("   Debug with: %s and check for error messages\n", yellow("./run.sh"))
-			}
 		}
 	}
 
+	// Run tests sequentially, stopping on first failure
 	passed := 0
 	failed := false
 	for _, test := range s.tests {
@@ -87,10 +74,7 @@ func (s *Suite) Run(ctx context.Context, stageKey, stageName string) {
 				if err := recover(); err != nil {
 					failed = true
 
-					// Test name
 					fmt.Printf("%s %s\n", crossMark, test.Name)
-
-					// Error details
 					fmt.Printf("\n%s\n", err)
 				}
 			}()
@@ -107,8 +91,9 @@ func (s *Suite) Run(ctx context.Context, stageKey, stageName string) {
 	total := len(s.tests)
 	if passed == total {
 		fmt.Printf("%s %s\n", bold("PASSED"), checkMark)
-		fmt.Printf("\nRun %s to advance to the next stage.\n", yellow("'lsfr next'"))
 	} else {
 		fmt.Printf("%s %s\n", bold("FAILED"), crossMark)
 	}
+
+	return passed == total
 }

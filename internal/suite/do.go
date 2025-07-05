@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os/exec"
@@ -12,14 +13,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/st3v3nmw/lsfr/pkg/safe"
+	"github.com/st3v3nmw/lsfr/pkg/threadsafe"
 )
 
 const scriptPath = "./run.sh"
 
 // Do provides test operations for running services and making assertions
 type Do struct {
-	services *safe.Map[string, *Service]
+	services *threadsafe.Map[string, *Service]
 }
 
 // Service represents a running service process
@@ -31,7 +32,7 @@ type Service struct {
 // NewDo creates a new Do instance
 func NewDo() *Do {
 	return &Do{
-		services: safe.NewMap[string, *Service](),
+		services: threadsafe.NewMap[string, *Service](),
 	}
 }
 
@@ -62,27 +63,37 @@ func (do *Do) Run(service string, port int, args ...string) *Do {
 // WaitForPort waits for a service to accept connections on its port
 func (do *Do) WaitForPort(service string) {
 	svc := do.getService(service)
+	host := fmt.Sprintf("127.0.0.1:%d", svc.port)
 
 	deadline := time.Now().Add(30 * time.Second)
 	interval := 5 * time.Millisecond
 	for time.Now().Before(deadline) {
+		if interval > time.Second {
+			fmt.Printf("Attempting connection to %s in %s...\n", host, interval.Round(time.Second))
+		}
 		time.Sleep(interval)
 
-		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", svc.port))
+		conn, err := net.Dial("tcp", host)
 		if err == nil {
 			conn.Close()
+
+			if interval > time.Second {
+				fmt.Println()
+			}
 			return
 		}
 
 		interval *= 2
 	}
 
-	panic(fmt.Sprintf("Could not connect to http://127.0.0.1:%d\n\n"+
-		"Possible issues:\n"+
-		"- run.sh script not executable (run: chmod +x run.sh)\n"+
-		"- Server not starting on port %d\n"+
-		"- Server crashing during startup\n\n"+
-		"Debug with: ./run.sh and check for error messages", svc.port, svc.port))
+	log.Fatalf(
+		"\nCould not connect to http://%s.\n\n"+
+			"Possible issues:\n"+
+			"- run.sh script not executable (run: chmod +x run.sh)\n"+
+			"- Server not starting on port %d\n"+
+			"- Server crashing during startup\n\n"+
+			"Debug with: ./run.sh and check for error messages", host, svc.port,
+	)
 }
 
 // Concurrently runs multiple functions in parallel and waits for completion
@@ -107,11 +118,12 @@ func (do *Do) Eventually(condition func() bool) {
 	interval := 5 * time.Millisecond
 
 	for time.Now().Before(deadline) {
+		time.Sleep(interval)
+
 		if condition() {
 			return
 		}
 
-		time.Sleep(interval)
 		interval *= 2
 	}
 
