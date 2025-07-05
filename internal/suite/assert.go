@@ -1,11 +1,33 @@
 package suite
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
+// Assert interface that all assertion types must implement
+// T is the concrete assertion type (HTTPAssert, CLIAssert, etc.)
+type Assert[T any] interface {
+	// Error handling
+	NoError() *ErrAssert
+	Error(message string) *ErrAssert
+	Got() T
+
+	// Help
+	setHelp(message string)
+	formatHelp() string
+	WithHelp(message string) T
+}
+
+var _ Assert[*HTTPAssert] = (*HTTPAssert)(nil)
+var _ Assert[*CLIAssert] = (*CLIAssert)(nil)
+
+// ErrAssert provides basic error assertion functionality
 type ErrAssert struct {
 	err error
 }
 
+// NoError asserts that no error occurred
 func (a *ErrAssert) NoError() *ErrAssert {
 	if a.err != nil {
 		panic(fmt.Sprintf("An error occurred: %q", a.err))
@@ -14,6 +36,7 @@ func (a *ErrAssert) NoError() *ErrAssert {
 	return a
 }
 
+// Error asserts that an error occurred with the expected message
 func (a *ErrAssert) Error(message string) *ErrAssert {
 	if a.err == nil {
 		panic(fmt.Sprintf("Expected err %q, none raised", message))
@@ -26,42 +49,65 @@ func (a *ErrAssert) Error(message string) *ErrAssert {
 	return a
 }
 
-type HTTPAssert struct {
-	ErrAssert
-	body       string
-	statusCode int
+// Help provides shared help text functionality
+type Help struct {
+	help string
 }
 
+// setHelp formats and stores help text with proper indentation
+func (h *Help) setHelp(message string) {
+	lines := strings.Split(message, "\n")
+	h.help = strings.Join(lines, "\n  ")
+}
+
+// formatHelp returns formatted help text for error messages
+func (h *Help) formatHelp() string {
+	if h.help != "" {
+		return "\n\n  " + h.help
+	}
+
+	return ""
+}
+
+// HTTPAssert provides HTTP response assertions with contextual error messages
+type HTTPAssert struct {
+	ErrAssert
+	Help
+
+	// Request fields
+	requestMethod string
+	requestURL    string
+	requestBody   string
+
+	// Response fields
+	responseBody   string
+	responseStatus int
+}
+
+// WithHelp adds contextual guidance for when this assertion fails
+func (a *HTTPAssert) WithHelp(message string) *HTTPAssert {
+	a.setHelp(message)
+
+	return a
+}
+
+// Got checks for errors and returns the assertion for further chaining
 func (a *HTTPAssert) Got() *HTTPAssert {
 	a.NoError()
 
 	return a
 }
 
+// Body asserts the HTTP response body matches the expected content
 func (a *HTTPAssert) Body(content string) *HTTPAssert {
-	if a.body != content {
-		msg := fmt.Sprintf("Expected response: %q\n  Actual response: %q", content, a.body)
-
-		// Add contextual guidance
-		if a.body == "" {
-			msg += "\n\n   Your server returned an empty response."
-			msg += "\n   Check that your handler is writing the response body."
-		} else if content == "" {
-			msg += "\n\n   Your server returned unexpected content."
-			msg += "\n   Expected no response body."
-		} else if content == "key cannot be empty\n" {
-			msg += "\n\n   Your server should validate that keys are not empty."
-			msg += "\n   Add validation to return this error message for empty keys."
-		} else if content == "value cannot be empty\n" {
-			msg += "\n\n   Your server should validate that values are not empty."
-			msg += "\n   Add validation to return this error message for empty values."
-		} else if content == "key not found\n" {
-			msg += "\n\n   Your server should return this message when a key doesn't exist."
-			msg += "\n   Check your key lookup logic and error handling."
-		} else if content == "method not allowed\n" {
-			msg += "\n\n   Your server should reject unsupported HTTP methods."
-			msg += "\n   Add logic to return 405 Method Not Allowed for unsupported methods."
+	if a.responseBody != content {
+		msg := fmt.Sprintf("%s %s", a.requestMethod, a.requestURL)
+		if a.requestBody != "" {
+			msg += fmt.Sprintf(" \"%s\"", a.requestBody)
 		}
+		msg += fmt.Sprintf("\n  Expected response: %q\n  Actual response: %q", content, a.responseBody)
+
+		msg += a.formatHelp()
 
 		panic(msg)
 	}
@@ -69,27 +115,16 @@ func (a *HTTPAssert) Body(content string) *HTTPAssert {
 	return a
 }
 
+// Status asserts the HTTP response status code matches the expected value
 func (a *HTTPAssert) Status(code int) *HTTPAssert {
-	if a.statusCode != code {
-		msg := fmt.Sprintf("Expected status %d, got %d", code, a.statusCode)
-
-		// Add contextual guidance
-		if a.statusCode == 0 {
-			msg += "\n\n   Could not connect to server."
-			msg += "\n   Check that your run.sh script starts a server on the expected port."
-		} else if code == 400 && a.statusCode == 200 {
-			msg += "\n\n   Your server accepted invalid input when it should reject it."
-			msg += "\n   Add validation to return 400 Bad Request for invalid requests."
-		} else if code == 200 && a.statusCode == 500 {
-			msg += "\n\n   Your server is returning an internal error."
-			msg += "\n   Check server logs for the specific error message."
-		} else if code == 404 && a.statusCode == 200 {
-			msg += "\n\n   Your server returned data for a non-existent resource."
-			msg += "\n   Add logic to check if the resource exists and return 404 if not found."
-		} else if code == 404 && a.statusCode == 500 {
-			msg += "\n\n   Your server crashed when handling a non-existent resource."
-			msg += "\n   Add proper error handling to return 404 for missing resources."
+	if a.responseStatus != code {
+		msg := fmt.Sprintf("%s %s", a.requestMethod, a.requestURL)
+		if a.requestBody != "" {
+			msg += fmt.Sprintf(" \"%s\"", a.requestBody)
 		}
+		msg += fmt.Sprintf("\n  Expected %d, got %d", code, a.responseStatus)
+
+		msg += a.formatHelp()
 
 		panic(msg)
 	}
@@ -97,27 +132,34 @@ func (a *HTTPAssert) Status(code int) *HTTPAssert {
 	return a
 }
 
+// CLIAssert provides CLI command output and exit code assertions
 type CLIAssert struct {
 	ErrAssert
+	Help
+
 	output   string
 	exitCode int
 }
 
+// WithHelp adds contextual guidance for when this assertion fails
+func (a *CLIAssert) WithHelp(message string) *CLIAssert {
+	a.setHelp(message)
+
+	return a
+}
+
+// Got checks for errors and returns the assertion for further chaining
 func (a *CLIAssert) Got() *CLIAssert {
 	a.NoError()
 
 	return a
 }
 
+// Output asserts the command output matches the expected text
 func (a *CLIAssert) Output(text string) *CLIAssert {
 	if a.output != text {
 		msg := fmt.Sprintf("Expected output %q, got %q", text, a.output)
-
-		// Add guidance for CLI output mismatches
-		if a.output == "" {
-			msg += "\n   Your command produced no output"
-			msg += "\n   Check that your script is printing to stdout"
-		}
+		msg += a.formatHelp()
 
 		panic(msg)
 	}
@@ -125,18 +167,11 @@ func (a *CLIAssert) Output(text string) *CLIAssert {
 	return a
 }
 
+// Exit asserts the command exit code matches the expected value
 func (a *CLIAssert) Exit(code int) *CLIAssert {
 	if a.exitCode != code {
 		msg := fmt.Sprintf("Expected exit code %d, got %d", code, a.exitCode)
-
-		// Add guidance for exit code mismatches
-		if code == 0 && a.exitCode != 0 {
-			msg += "\n   Your command failed unexpectedly"
-			msg += "\n   Check the error output for details"
-		} else if code != 0 && a.exitCode == 0 {
-			msg += "\n   Your command should fail in this case"
-			msg += "\n   Check that your error handling is working correctly"
-		}
+		msg += a.formatHelp()
 
 		panic(msg)
 	}

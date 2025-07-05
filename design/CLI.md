@@ -14,7 +14,7 @@ lsfr is a CLI tool for learning to build complex systems from scratch. Take on c
 
 ## Creating New Challenges
 
-_lsfr new <challenge> [<path>]_
+`lsfr new <challenge> [<path>]`
 
 ```bash
 # Basic usage (defaults to current directory)
@@ -35,7 +35,7 @@ Created challenge in directory: ./my-kv-store
 
 cd my-kv-store and implement http-api stage, then run 'lsfr test'.
 
-# State tracking
+# State tracking & config
 $ cat lsfr.yaml
 challenge: key-value-store
 stages:
@@ -71,21 +71,21 @@ Build a distributed key-value database from scratch. You'll start with a simple 
 
 ## Getting Started
 
-1. Edit `run.sh` to start your implementation
-2. Run `lsfr test` to test the current stage
-3. Run `lsfr next` when ready to advance
+1. Edit _run.sh_ to start your implementation
+2. Run _lsfr test_ to test the current stage
+3. Run _lsfr next_ when ready to advance
 
 Your server should listen on port 8888 and implement:
-- `PUT /kv/{key}` - Store a value
-- `GET /kv/{key}` - Retrieve a value
-- `DELETE /kv/{key}` - Delete a value
+1. PUT /kv/{key} - Store a value
+2. GET /kv/{key} - Retrieve a value
+3. DELETE /kv/{key} - Delete a value
 
 Good luck! 🚀
 ```
 
 ## Testing Stages
 
-_lsfr test [<stage>]_
+`lsfr test [<stage>]`
 
 ```bash
 # Test current stage (reads from lsfr.yaml)
@@ -125,8 +125,7 @@ Running http-api: Basic Operations
 ✓ GET operations
 ✗ Error handling
 
-PUT Edge and Error Cases:
-  PUT http://127.0.0.1:8888/kv/ "foo" → Expected 400, got 200
+PUT http://127.0.0.1:8888/kv/ "foo"
   Expected response: "key cannot be empty"
   Actual response: ""
 
@@ -148,7 +147,7 @@ Available stages:
 
 ## Progression
 
-_lsfr next_
+`lsfr next`
 
 ```bash
 # Advance to next stage
@@ -162,7 +161,7 @@ Your implementation must now:
 
 Run 'lsfr test' when ready
 
-# Update state file
+# Update state/config file
 $ cat lsfr.yaml
 challenge: key-value-store
 stages:
@@ -187,7 +186,7 @@ Consider trying another challenge @ lsfr.io/challenges
 
 ## Information Commands
 
-_lsfr list_
+`lsfr list`
 
 ```bash
 # List available challenges
@@ -201,7 +200,7 @@ Available challenges:
 Start with: lsfr new <challenge-name>
 ```
 
-_lsfr status_
+`lsfr status`
 
 ```bash
 # Show current progress and challenge info

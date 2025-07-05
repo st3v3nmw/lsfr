@@ -16,21 +16,25 @@ import (
 
 const scriptPath = "./run.sh"
 
+// Do provides test operations for running services and making assertions
 type Do struct {
 	services *safe.Map[string, *Service]
 }
 
+// Service represents a running service process
 type Service struct {
 	port int
 	cmd  *exec.Cmd
 }
 
+// NewDo creates a new Do instance
 func NewDo() *Do {
 	return &Do{
 		services: safe.NewMap[string, *Service](),
 	}
 }
 
+// getService retrieves a service by name
 func (do *Do) getService(service string) *Service {
 	if svc, exists := do.services.Get(service); exists {
 		return svc
@@ -39,6 +43,7 @@ func (do *Do) getService(service string) *Service {
 	panic(fmt.Sprintf("service %q not found", service))
 }
 
+// Run starts a service process using the run.sh script
 func (do *Do) Run(service string, port int, args ...string) *Do {
 	cmd := exec.Command(scriptPath, args...)
 
@@ -52,6 +57,7 @@ func (do *Do) Run(service string, port int, args ...string) *Do {
 	return do
 }
 
+// WaitForPort waits for a service to accept connections on its port
 func (do *Do) WaitForPort(service string) {
 	svc := do.getService(service)
 
@@ -77,6 +83,7 @@ func (do *Do) WaitForPort(service string) {
 		"Debug with: ./run.sh and check for error messages", svc.port, svc.port))
 }
 
+// Concurrently runs multiple functions in parallel and waits for completion
 func (do *Do) Concurrently(fns ...func()) {
 	var wg sync.WaitGroup
 
@@ -92,6 +99,7 @@ func (do *Do) Concurrently(fns ...func()) {
 	wg.Wait()
 }
 
+// Eventually waits for a condition to become true within a timeout
 func (do *Do) Eventually(condition func() bool) {
 	deadline := time.Now().Add(30 * time.Second)
 	interval := 5 * time.Millisecond
@@ -108,6 +116,7 @@ func (do *Do) Eventually(condition func() bool) {
 	panic("Eventually condition failed after timeout")
 }
 
+// Done cleans up all running services
 func (do *Do) Done() {
 
 	do.services.Range(func(_ string, svc *Service) bool {
@@ -117,6 +126,7 @@ func (do *Do) Done() {
 
 }
 
+// HTTP makes an HTTP request to a service
 func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
 	svc := do.getService(service)
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -152,11 +162,16 @@ func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
 	}
 
 	return &HTTPAssert{
-		body:       string(responseBody),
-		statusCode: resp.StatusCode,
+		requestMethod: method,
+		requestURL:    path,
+		requestBody:   string(body),
+
+		responseBody:   string(responseBody),
+		responseStatus: resp.StatusCode,
 	}
 }
 
+// Exec runs a command using the run.sh script
 func (do *Do) Exec(args ...string) *CLIAssert {
 	cmd := exec.Command(scriptPath, args...)
 
