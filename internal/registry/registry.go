@@ -74,3 +74,7 @@ func GetChallenge(key string) (*Challenge, error) {
 
 	return challenge, nil
 }
+
+func GetAllChallenges() map[string]*Challenge {
+	return challenges
+}

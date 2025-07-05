@@ -150,3 +150,21 @@ func TestChallenge(ctx context.Context, cmd *commands.Command) error {
 
 	return nil
 }
+
+// TODO: Add `lsfr next` implementation here.
+
+func ListChallenges(ctx context.Context, cmd *commands.Command) error {
+	challenges := registry.GetAllChallenges()
+
+	fmt.Println("Available challenges:")
+	fmt.Println()
+
+	for key, challenge := range challenges {
+		fmt.Printf("  %-20s - %s (%d stages)\n", key, challenge.Name, challenge.Len())
+	}
+
+	fmt.Println()
+	fmt.Println("Start with: lsfr new <challenge-name>")
+
+	return nil
+}

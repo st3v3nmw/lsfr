@@ -22,7 +22,7 @@ func main() {
 			},
 			{
 				Name:      "test",
-				Usage:     "Test your implementation",
+				Usage:     "Test current or specific stage",
 				ArgsUsage: "[stage]",
 				Action:    cli.TestChallenge,
 			},
@@ -32,15 +32,9 @@ func main() {
 				// Action: nextStage,
 			},
 			{
-				Name:  "list",
-				Usage: "Show available challenges",
-				// Action: listChallenges,
-			},
-			{
-				Name:      "info",
-				Usage:     "Show challenge details",
-				ArgsUsage: "<challenge>",
-				// Action:    showInfo,
+				Name:   "list",
+				Usage:  "List available challenges",
+				Action: cli.ListChallenges,
 			},
 			{
 				Name:  "status",

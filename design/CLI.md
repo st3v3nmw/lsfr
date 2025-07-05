@@ -12,7 +12,7 @@ lsfr is a CLI tool for learning to build complex systems from scratch. Take on c
 
 **Progressive disclosure of complexity.** Each stage builds on the previous one, introducing new concepts only when foundations are solid.
 
-## Creating New Challenges
+## Starting Challenges
 
 `lsfr new <challenge> [<path>]`
 
