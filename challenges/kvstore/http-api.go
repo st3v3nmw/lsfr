@@ -12,7 +12,7 @@ func HTTPAPIStage() *suite.Suite {
 	return suite.New().
 		// 0
 		Setup(func(do *suite.Do) {
-			do.Run("primary", 8888)
+			do.Start("primary", 8888)
 			do.WaitForPort("primary")
 
 			// Clear key-value store

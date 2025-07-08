@@ -15,7 +15,7 @@ import (
 
 const scriptPath = "./run.sh"
 
-// Do is the test harness & runner
+// Do provides the test harness and acts as the test runner
 type Do struct {
 	services *threadsafe.Map[string, *Service]
 	ctx      context.Context
@@ -47,8 +47,8 @@ func (do *Do) getService(service string) *Service {
 	panic(fmt.Sprintf("service %q not found", service))
 }
 
-// Run starts a service process using the run.sh script
-func (do *Do) Run(service string, port int, args ...string) *Do {
+// Start starts a service process using the run.sh script
+func (do *Do) Start(service string, port int, args ...string) *Do {
 	select {
 	case <-do.ctx.Done():
 		return do
@@ -118,7 +118,7 @@ func (do *Do) Concurrently(fns ...func()) {
 // Done cleans up all running services
 func (do *Do) Done() {
 	do.cancel()
-	
+
 	do.services.Range(func(_ string, svc *Service) bool {
 		do.stopService(svc)
 		return true
@@ -132,7 +132,7 @@ func (do *Do) stopService(svc *Service) {
 	}
 
 	pgid := svc.cmd.Process.Pid
-	
+
 	// Send SIGTERM to process group for graceful shutdown
 	err := syscall.Kill(-pgid, syscall.SIGTERM)
 	if err != nil {
@@ -156,7 +156,7 @@ func (do *Do) stopService(svc *Service) {
 	}
 }
 
-// HTTP creates an HTTP promise for a service
+// HTTP creates a deferred HTTP request
 func (do *Do) HTTP(service, method, path string, args ...any) *HTTPPromise {
 	svc := do.getService(service)
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.port, path)
@@ -182,7 +182,7 @@ func (do *Do) HTTP(service, method, path string, args ...any) *HTTPPromise {
 	}
 }
 
-// Exec runs a command using the run.sh script
+// Exec creates a deferred CLI command execution
 func (do *Do) Exec(args ...string) *CLIPromise {
 	return &CLIPromise{
 		command: scriptPath,

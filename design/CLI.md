@@ -1,5 +1,7 @@
 # CLI Design
 
+`lsfr`
+
 ## Philosophy
 
 **Succeed quietly, fail loudly** - When tests pass, show brief confirmation and celebrate milestones. When things break, provide detailed diagnostics and actionable next steps that help the developer understand what went wrong and how to fix it.

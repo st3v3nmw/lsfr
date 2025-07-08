@@ -87,15 +87,15 @@ type HTTPAssert struct {
 	expectedBody   string
 }
 
-// Body sets the expected HTTP response body content
-func (a *HTTPAssert) Body(content string) *HTTPAssert {
-	a.expectedBody = content
-	return a
-}
-
 // Status sets the expected HTTP response status code
 func (a *HTTPAssert) Status(code int) *HTTPAssert {
 	a.expectedStatus = code
+	return a
+}
+
+// Body sets the expected HTTP response body content
+func (a *HTTPAssert) Body(content string) *HTTPAssert {
+	a.expectedBody = content
 	return a
 }
 
@@ -175,15 +175,15 @@ type CLIAssert struct {
 	expectedExitCode int
 }
 
-// Output sets the expected command output
-func (a *CLIAssert) Output(text string) *CLIAssert {
-	a.expectedOutput = text
-	return a
-}
-
 // Exit sets the expected exit code
 func (a *CLIAssert) Exit(code int) *CLIAssert {
 	a.expectedExitCode = code
+	return a
+}
+
+// Output sets the expected command output
+func (a *CLIAssert) Output(text string) *CLIAssert {
+	a.expectedOutput = text
 	return a
 }
 
