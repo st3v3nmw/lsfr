@@ -1,16 +1,14 @@
-# CLI
-
-lsfr is a CLI tool for learning how to build complex systems from scratch. It helps developers take on challenges like distributed databases, message queues, load balancers, or even LLMs by implementing them step-by-step through progressive tests.
+# CLI Design
 
 ## Philosophy
 
-**Succeed quietly; fail fast & loudly.** When tests pass, show brief confirmation and celebrate milestones. When things break, provide detailed diagnostics and actionable next steps.
+**Succeed quietly, fail loudly** - When tests pass, show brief confirmation and celebrate milestones. When things break, provide detailed diagnostics and actionable next steps that help the developer understand what went wrong and how to fix it.
 
-**No surprises.** Every command does exactly what it says with no surprises or hidden side effects. Current state is visible in `lsfr.yaml`, not hidden internally.
+**No surprises** - Every command does exactly what it says with no hidden side effects. Current state is always visible in `lsfr.yaml`, not buried internally.
 
-**Make the common case effortless.** The most frequent workflow gets the shortest commands with minimal or no flags. Tracked state in `lsfr.yaml` supports this.
+**Make the common case effortless** - The most frequent workflow gets the shortest commands with minimal flags. State tracking supports natural stage progression without repetitive typing.
 
-**Progressive disclosure of complexity.** Each stage builds on the previous one, introducing new concepts only when foundations are solid.
+**Conversation as the norm** - Command-line interaction is naturally conversational: run a test, get feedback, adjust code, and try again. The CLI embraces this by suggesting corrections when tests fail, tracking progress between commands, and providing contextual guidance based on current stage in the learning process.
 
 ## Starting Challenges
 

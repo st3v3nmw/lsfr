@@ -1,180 +1,241 @@
 package suite
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os/exec"
 	"strings"
+	"time"
 )
 
-// Assert interface that all assertion types must implement
-// T is the concrete assertion type (HTTPAssert, CLIAssert, etc.)
-type Assert[T any] interface {
-	NoError() *ErrAssert
-	Error(message string) *ErrAssert
-	Got() T
+// Eventually checks that the condition becomes true within the given period
+func Eventually(ctx context.Context, executor func() bool, timeout time.Duration) bool {
+	interval := 100 * time.Millisecond
+	deadline := time.Now().Add(timeout)
 
-	setHelp(message string)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(interval):
+			if executor() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// Consistently checks that the condition is always true for the given period
+func Consistently(ctx context.Context, executor func() bool, timeout time.Duration) bool {
+	interval := 100 * time.Millisecond
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(interval):
+			if !executor() {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// DomainAssert represents assertion behavior for domain-specific operations
+type DomainAssert interface {
+	// Core
+	Assert(help string)
+	immediately() bool
+
+	// Helpers
 	formatHelp() string
-	WithHelp(message string) T
 }
 
-var _ Assert[*HTTPAssert] = (*HTTPAssert)(nil)
-var _ Assert[*CLIAssert] = (*CLIAssert)(nil)
+// Compile-time type checks
+var _ DomainAssert = (*HTTPAssert)(nil)
+var _ DomainAssert = (*CLIAssert)(nil)
 
-// ErrAssert provides basic error assertion functionality
-type ErrAssert struct {
-	err error
-}
-
-// NoError asserts that no error occurred
-func (a *ErrAssert) NoError() *ErrAssert {
-	if a.err != nil {
-		panic(fmt.Sprintf("An error occurred: %q", a.err))
-	}
-
-	return a
-}
-
-// Error asserts that an error occurred with the expected message
-func (a *ErrAssert) Error(message string) *ErrAssert {
-	if a.err == nil {
-		panic(fmt.Sprintf("Expected err %q, none raised", message))
-	}
-
-	if a.err.Error() != message {
-		panic(fmt.Sprintf("Expected err %q, got %q", message, a.err))
-	}
-
-	return a
-}
-
-type Help struct {
+type BaseAssert struct {
 	help string
 }
 
-// setHelp formats and stores help text with proper indentation
-func (h *Help) setHelp(message string) {
-	lines := strings.Split(message, "\n")
-	h.help = strings.Join(lines, "\n  ")
-}
-
-// formatHelp returns formatted help text for error messages
-func (h *Help) formatHelp() string {
-	if h.help != "" {
-		return "\n\n  " + h.help
+func (a *BaseAssert) formatHelp() string {
+	if a.help != "" {
+		return "\n\n  " + strings.ReplaceAll(a.help, "\n", "\n  ")
 	}
 
 	return ""
 }
 
-// HTTPAssert provides HTTP response assertions with contextual error messages
 type HTTPAssert struct {
-	ErrAssert
-	Help
+	BaseAssert
 
-	requestMethod string
-	requestURL    string
-	requestBody   string
-
+	promise        *HTTPPromise
 	responseBody   string
 	responseStatus int
+
+	expectedStatus int
+	expectedBody   string
 }
 
-// WithHelp adds contextual guidance for when this assertion fails
-func (a *HTTPAssert) WithHelp(message string) *HTTPAssert {
-	a.setHelp(message)
-
-	return a
-}
-
-// Got checks for errors and returns the assertion for further chaining
-func (a *HTTPAssert) Got() *HTTPAssert {
-	a.NoError()
-
-	return a
-}
-
-// Body asserts the HTTP response body matches the expected content
+// Body sets the expected HTTP response body content
 func (a *HTTPAssert) Body(content string) *HTTPAssert {
-	if a.responseBody != content {
-		msg := fmt.Sprintf("%s %s", a.requestMethod, a.requestURL)
-		if a.requestBody != "" {
-			msg += fmt.Sprintf(" \"%s\"", a.requestBody)
-		}
-		msg += fmt.Sprintf("\n  Expected response: %q\n  Actual response: %q", content, a.responseBody)
-
-		msg += a.formatHelp()
-
-		panic(msg)
-	}
-
+	a.expectedBody = content
 	return a
 }
 
-// Status asserts the HTTP response status code matches the expected value
+// Status sets the expected HTTP response status code
 func (a *HTTPAssert) Status(code int) *HTTPAssert {
-	if a.responseStatus != code {
-		msg := fmt.Sprintf("%s %s", a.requestMethod, a.requestURL)
-		if a.requestBody != "" {
-			msg += fmt.Sprintf(" \"%s\"", a.requestBody)
-		}
-		msg += fmt.Sprintf(
-			"\n  Expected %d %s, got %d %s",
-			code, http.StatusText(code),
+	a.expectedStatus = code
+	return a
+}
+
+// Execute and assert results
+func (a *HTTPAssert) Assert(help string) {
+	a.help = help
+
+	// Execute deferred operation
+	p := a.promise
+	switch p.timing {
+	case TimingEventually:
+		Eventually(p.ctx, a.immediately, 5*time.Second)
+	case TimingConsistently:
+		Consistently(p.ctx, a.immediately, 5*time.Second)
+	default:
+		a.immediately()
+	}
+
+	// Assert
+	if a.responseStatus != a.expectedStatus {
+		msg := fmt.Sprintf("%s %s\n  Expected %d %s, got %d %s%s",
+			p.method, p.url,
+			a.expectedStatus, http.StatusText(a.expectedStatus),
 			a.responseStatus, http.StatusText(a.responseStatus),
-		)
-
-		msg += a.formatHelp()
-
+			a.formatHelp())
 		panic(msg)
 	}
 
-	return a
+	if a.responseBody != a.expectedBody {
+		msg := fmt.Sprintf("%s %s\n  Expected response: %q\n  Actual response: %q%s",
+			p.method, p.url,
+			a.expectedBody, a.responseBody,
+			a.formatHelp())
+		panic(msg)
+	}
+}
+
+func (a *HTTPAssert) immediately() bool {
+	client := &http.Client{Timeout: 30 * time.Second}
+	p := a.promise
+
+	req, err := http.NewRequestWithContext(p.ctx, p.method, p.url, bytes.NewReader(p.body))
+	if err != nil {
+		panic(fmt.Sprintf("An error occurred: %v", err))
+	}
+
+	for key, value := range p.headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(fmt.Sprintf("An error occurred: %v", err))
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(fmt.Sprintf("An error occurred: %v", err))
+	}
+
+	a.responseBody = string(responseBody)
+	a.responseStatus = resp.StatusCode
+
+	return a.responseStatus == a.expectedStatus && a.responseBody == a.expectedBody
 }
 
 // CLIAssert provides CLI command output and exit code assertions
 type CLIAssert struct {
-	ErrAssert
-	Help
+	BaseAssert
 
+	promise  *CLIPromise
 	output   string
 	exitCode int
+
+	expectedOutput   string
+	expectedExitCode int
 }
 
-// WithHelp adds contextual guidance for when this assertion fails
-func (a *CLIAssert) WithHelp(message string) *CLIAssert {
-	a.setHelp(message)
-
-	return a
-}
-
-// Got checks for errors and returns the assertion for further chaining
-func (a *CLIAssert) Got() *CLIAssert {
-	a.NoError()
-
-	return a
-}
-
-// Output asserts the command output matches the expected text
+// Output sets the expected command output
 func (a *CLIAssert) Output(text string) *CLIAssert {
-	if a.output != text {
-		msg := fmt.Sprintf("Expected output %q, got %q", text, a.output)
-		msg += a.formatHelp()
-
-		panic(msg)
-	}
-
+	a.expectedOutput = text
 	return a
 }
 
-// Exit asserts the command exit code matches the expected value
+// Exit sets the expected exit code
 func (a *CLIAssert) Exit(code int) *CLIAssert {
-	if a.exitCode != code {
-		msg := fmt.Sprintf("Expected exit code %d, got %d", code, a.exitCode)
-		msg += a.formatHelp()
+	a.expectedExitCode = code
+	return a
+}
 
+// Execute and assert results
+func (a *CLIAssert) Assert(help string) {
+	a.help = help
+
+	// Execute deferred operation
+	p := a.promise
+	switch p.timing {
+	case TimingEventually:
+		Eventually(p.ctx, a.immediately, 5*time.Second)
+	case TimingConsistently:
+		Consistently(p.ctx, a.immediately, 5*time.Second)
+	default:
+		a.immediately()
+	}
+
+	// Assert
+	if a.exitCode != a.expectedExitCode {
+		msg := fmt.Sprintf("%s\n  Expected exit code %d, got %d%s",
+			p.command,
+			a.expectedExitCode, a.exitCode,
+			a.formatHelp())
 		panic(msg)
 	}
 
-	return a
+	if a.output != a.expectedOutput {
+		msg := fmt.Sprintf("%s\n  Expected output: %q\n  Actual output: %q%s",
+			p.command,
+			a.expectedOutput, a.output,
+			a.formatHelp())
+		panic(msg)
+	}
+}
+
+func (a *CLIAssert) immediately() bool {
+	p := a.promise
+	cmd := exec.CommandContext(p.ctx, p.command, p.args...)
+
+	stdout, err := cmd.Output()
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			a.output = string(exitError.Stderr)
+			a.exitCode = exitError.ExitCode()
+		} else {
+			panic(err.Error())
+		}
+	} else {
+		a.output = string(stdout)
+	}
+
+	return a.exitCode == a.expectedExitCode && a.output == a.expectedOutput
 }

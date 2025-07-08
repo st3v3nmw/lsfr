@@ -156,7 +156,8 @@ func runStageTests(ctx context.Context, challengeKey, stageKey string) (bool, er
 	}
 
 	suite := stage.Fn()
-	return suite.Run(ctx, challengeKey, stageKey, stage.Name), nil
+	passed := suite.Run(ctx, fmt.Sprintf("%s: %s", stageKey, stage.Name))
+	return passed, nil
 }
 
 // TestStage runs tests for the current or specified stage

@@ -8,214 +8,221 @@ import (
 	"github.com/st3v3nmw/lsfr/internal/suite"
 )
 
-func HTTPAPIStage() suite.Suite {
-	return *suite.New().
+func HTTPAPIStage() *suite.Suite {
+	return suite.New().
 		// 0
-		Setup(func(do *suite.Do) error {
-			do.Run("node", 8888)
-			do.WaitForPort("node")
+		Setup(func(do *suite.Do) {
+			do.Run("primary", 8888)
+			do.WaitForPort("primary")
 
-			cleanupKeys := []string{
-				"kenya:capital", "uganda:capital", "tanzania:capital",
-				"test:key", "empty", "unicode:key", "long:" + strings.Repeat("k", 100),
-				"special:key-with_symbols.123", "delete:twice",
-				"concurrent:key1", "concurrent:key2", "concurrent:key3",
-			}
-			for _, key := range cleanupKeys {
-				do.HTTP("node", "DELETE", fmt.Sprintf("/kv/%s", key))
-			}
-
-			return nil
+			// Clear key-value store
+			do.HTTP("primary", "POST", "/clear").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should implement a /clear endpoint.\n" +
+					"Add a POST /clear method that deletes all key-value pairs.")
 		}).
 
 		// 1
 		Test("PUT Basic Operations", func(do *suite.Do) {
 			// Set initial key-value pairs that subsequent tests can rely on
-			putHelp := "Your server should accept PUT requests and return 200 OK.\nEnsure your HTTP handler processes PUT requests to /kv/{key}."
-			do.HTTP("node", "PUT", "/kv/kenya:capital", "Nairobi").
-				WithHelp(putHelp).
-				Got().Status(http.StatusOK)
-			do.HTTP("node", "PUT", "/kv/uganda:capital", "Kampala").
-				WithHelp(putHelp).
-				Got().Status(http.StatusOK)
-			do.HTTP("node", "PUT", "/kv/tanzania:capital", "Dar es Salaam").
-				WithHelp(putHelp).
-				Got().Status(http.StatusOK)
+			capitals := map[string]string{
+				"kenya":    "Nairobi",
+				"uganda":   "Kampala",
+				"tanzania": "Dar es Salaam",
+			}
+			for country, capital := range capitals {
+				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s:capital", country), capital).
+					Returns().Status(http.StatusOK).
+					Assert("Your server should accept PUT requests and return 200 OK.\n" +
+						"Ensure your HTTP handler processes PUT requests to /kv/{key}.")
+			}
 
 			// Test overwrite behavior
-			do.HTTP("node", "PUT", "/kv/tanzania:capital", "Dodoma").
-				WithHelp("Your server should allow overwriting existing keys.\nPUT requests should update the value of existing keys.").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "PUT", "/kv/tanzania:capital", "Dodoma").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should allow overwriting existing keys.\n" +
+					"PUT requests should update the value of existing keys.")
 
 			// Verify overwrite worked
-			do.HTTP("node", "GET", "/kv/tanzania:capital").
-				WithHelp("Your server should return the updated value after overwrite.\nGET requests should return the most recently stored value.").
-				Got().Status(http.StatusOK).Body("Dodoma")
+			do.HTTP("primary", "GET", "/kv/tanzania:capital").
+				Returns().Status(http.StatusOK).Body("Dodoma").
+				Assert("Your server should return the updated value after overwrite.\n" +
+					"GET requests should return the most recently stored value.")
 		}).
 
 		// 2
 		Test("PUT Edge and Error Cases", func(do *suite.Do) {
 			// Empty value
-			do.HTTP("node", "PUT", "/kv/empty").
-				WithHelp("Your server accepted an empty value when it should reject it.\nAdd validation to return 400 Bad Request for empty values.").
-				Got().Status(http.StatusBadRequest).Body("value cannot be empty\n")
+			do.HTTP("primary", "PUT", "/kv/empty").
+				Returns().Status(http.StatusBadRequest).Body("value cannot be empty\n").
+				Assert("Your server accepted an empty value when it should reject it.\n" +
+					"Add validation to return 400 Bad Request for empty values.")
 
 			// Empty key
-			do.HTTP("node", "PUT", "/kv/", "some_value").
-				WithHelp("Your server accepted an empty key when it should reject it.\nAdd validation to return 400 Bad Request for empty keys.").
-				Got().Status(http.StatusBadRequest).Body("key cannot be empty\n")
+			do.HTTP("primary", "PUT", "/kv/", "some_value").
+				Returns().Status(http.StatusBadRequest).Body("key cannot be empty\n").
+				Assert("Your server accepted an empty key when it should reject it.\n" +
+					"Add validation to return 400 Bad Request for empty keys.")
 
 			// Unicode handling
-			do.HTTP("node", "PUT", "/kv/unicode:key", "🌍 Nairobi").
-				WithHelp("Your server should handle Unicode characters in values.\nEnsure your HTTP handler properly processes UTF-8 encoded data.").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "PUT", "/kv/unicode:key", "🌍 Nairobi").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should handle Unicode characters in values.\n" +
+					"Ensure your HTTP handler properly processes UTF-8 encoded data.")
 
 			// Long key and value
 			longKey := "long:" + strings.Repeat("k", 100)
 			longValue := strings.Repeat("v", 1000)
-			do.HTTP("node", "PUT", fmt.Sprintf("/kv/%s", longKey), longValue).
-				WithHelp("Your server should handle long keys and values.\nEnsure your implementation doesn't have arbitrary length limits.").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", longKey), longValue).
+				Returns().Status(http.StatusOK).
+				Assert("Your server should handle long keys and values.\n" +
+					"Ensure your implementation doesn't have arbitrary length limits.")
 
 			// Special characters in key/value
-			do.HTTP("node", "PUT", "/kv/special:key-with_symbols.123", "value with spaces & symbols!").
-				WithHelp("Your server should handle special characters in keys and values.\nEnsure proper URL path parsing and value encoding/decoding.").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "PUT", "/kv/special:key-with_symbols.123", "value with spaces & symbols!").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should handle special characters in keys and values.\n" +
+					"Ensure proper URL path parsing and value encoding/decoding.")
 		}).
 
 		// 3
 		Test("GET Basic Operations", func(do *suite.Do) {
 			// Retrieve values we know exist from PUT tests
-			do.HTTP("node", "GET", "/kv/kenya:capital").
-				WithHelp("Your server should return stored values with GET requests.\nEnsure your key-value storage and retrieval logic is working correctly.").
-				Got().Status(http.StatusOK).Body("Nairobi")
-			do.HTTP("node", "GET", "/kv/uganda:capital").
-				WithHelp("Your server should return stored values with GET requests.\nEnsure your key-value storage and retrieval logic is working correctly.").
-				Got().Status(http.StatusOK).Body("Kampala")
-			do.HTTP("node", "GET", "/kv/tanzania:capital").
-				WithHelp("Your server should return the most recently stored value.\nEnsure overwrite operations update the stored value correctly.").
-				Got().Status(http.StatusOK).Body("Dodoma")
+			do.HTTP("primary", "GET", "/kv/kenya:capital").
+				Returns().Status(http.StatusOK).Body("Nairobi").
+				Assert("Your server should return stored values with GET requests.\n" +
+					"Ensure your key-value storage and retrieval logic is working correctly.")
+			do.HTTP("primary", "GET", "/kv/uganda:capital").
+				Returns().Status(http.StatusOK).Body("Kampala").
+				Assert("Your server should return stored values with GET requests.\n" +
+					"Ensure your key-value storage and retrieval logic is working correctly.")
+			do.HTTP("primary", "GET", "/kv/tanzania:capital").
+				Returns().Status(http.StatusOK).Body("Dodoma").
+				Assert("Your server should return the most recently stored value.\n" +
+					"Ensure overwrite operations update the stored value correctly.")
 
 			// Verify Unicode handling
-			do.HTTP("node", "GET", "/kv/unicode:key").
-				WithHelp("Your server should preserve Unicode characters in stored values.\nEnsure proper UTF-8 handling in your storage and retrieval logic.").
-				Got().Status(http.StatusOK).Body("🌍 Nairobi")
+			do.HTTP("primary", "GET", "/kv/unicode:key").
+				Returns().Status(http.StatusOK).Body("🌍 Nairobi").
+				Assert("Your server should preserve Unicode characters in stored values.\n" +
+					"Ensure proper UTF-8 handling in your storage and retrieval logic.")
 
 			// Verify long values
 			longKey := "long:" + strings.Repeat("k", 100)
 			longValue := strings.Repeat("v", 1000)
-			do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", longKey)).
-				WithHelp("Your server should handle retrieval of long keys and values.\nEnsure your storage doesn't truncate or corrupt large data.").
-				Got().Status(http.StatusOK).Body(longValue)
+			do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", longKey)).
+				Returns().Status(http.StatusOK).Body(longValue).
+				Assert("Your server should handle retrieval of long keys and values.\n" +
+					"Ensure your storage doesn't truncate or corrupt large data.")
 		}).
 
 		// 4
 		Test("GET Edge and Error Cases", func(do *suite.Do) {
 			// Non-existent key
-			do.HTTP("node", "GET", "/kv/nonexistent:key").
-				WithHelp("Your server should return 404 Not Found when a key doesn't exist.\nCheck your key lookup logic and error handling.").
-				Got().Status(http.StatusNotFound).Body("key not found\n")
+			do.HTTP("primary", "GET", "/kv/nonexistent:key").
+				Returns().Status(http.StatusNotFound).Body("key not found\n").
+				Assert("Your server should return 404 Not Found when a key doesn't exist.\n" +
+					"Check your key lookup logic and error handling.")
 
 			// Case sensitivity test
-			do.HTTP("node", "GET", "/kv/KENYA:CAPITAL").
-				WithHelp("Your server should return 404 Not Found when a key doesn't exist.\nCheck your key lookup logic and error handling.").
-				Got().Status(http.StatusNotFound).Body("key not found\n")
+			do.HTTP("primary", "GET", "/kv/KENYA:CAPITAL").
+				Returns().Status(http.StatusNotFound).Body("key not found\n").
+				Assert("Your server should return 404 Not Found when a key doesn't exist.\n" +
+					"Check your key lookup logic and error handling.")
 
 			// Empty key
-			do.HTTP("node", "GET", "/kv/").
-				WithHelp("Your server accepted an empty key when it should reject it.\nAdd validation to return 400 Bad Request for empty keys.").
-				Got().Status(http.StatusBadRequest).Body("key cannot be empty\n")
+			do.HTTP("primary", "GET", "/kv/").
+				Returns().Status(http.StatusBadRequest).Body("key cannot be empty\n").
+				Assert("Your server accepted an empty key when it should reject it.\n" +
+					"Add validation to return 400 Bad Request for empty keys.")
 		}).
 
 		// 5
 		Test("DELETE Basic Operations", func(do *suite.Do) {
 			// Delete an existing key
-			do.HTTP("node", "DELETE", "/kv/tanzania:capital").
-				WithHelp("Your server should accept DELETE requests and return 200 OK.\nEnsure your HTTP handler processes DELETE requests to /kv/{key}.").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "DELETE", "/kv/tanzania:capital").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should accept DELETE requests and return 200 OK.\n" +
+					"Ensure your HTTP handler processes DELETE requests to /kv/{key}.")
 
 			// Verify deletion worked
-			do.HTTP("node", "GET", "/kv/tanzania:capital").
-				WithHelp("Your server should return 404 Not Found when a key doesn't exist.\nCheck your key lookup logic and error handling.").
-				Got().Status(http.StatusNotFound).Body("key not found\n")
+			do.HTTP("primary", "GET", "/kv/tanzania:capital").
+				Returns().Status(http.StatusNotFound).Body("key not found\n").
+				Assert("Your server should return 404 Not Found when a key doesn't exist.\n" +
+					"Check your key lookup logic and error handling.")
 
 			// Verify other keys still exist
-			do.HTTP("node", "GET", "/kv/kenya:capital").
-				WithHelp("Your server should only delete the specified key, not affect others.\nEnsure your delete operation doesn't remove unrelated data.").
-				Got().Status(http.StatusOK).Body("Nairobi")
+			do.HTTP("primary", "GET", "/kv/kenya:capital").
+				Returns().Status(http.StatusOK).Body("Nairobi").
+				Assert("Your server should only delete the specified key, not affect others.\n" +
+					"Ensure your delete operation doesn't remove unrelated data.")
 		}).
 
 		// 6
 		Test("DELETE Edge and Error Cases", func(do *suite.Do) {
 			// Delete non-existent key
-			do.HTTP("node", "DELETE", "/kv/nonexistent:key").
-				WithHelp("Your server should gracefully handle deletion of non-existent keys.\nReturning 200 OK for missing keys is acceptable (idempotent).").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "DELETE", "/kv/nonexistent:key").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should gracefully handle deletion of non-existent keys.\n" +
+					"Returning 200 OK for missing keys is acceptable (idempotent).")
 
 			// Delete same key twice
-			do.HTTP("node", "PUT", "/kv/delete:twice", "value").
-				WithHelp("Your server should accept PUT requests and return 200 OK.\nEnsure your HTTP handler processes PUT requests to /kv/{key}.").
-				Got().Status(http.StatusOK)
-			do.HTTP("node", "DELETE", "/kv/delete:twice").
-				WithHelp("Your server should successfully delete existing keys.\nImplement proper key removal in your storage logic.").
-				Got().Status(http.StatusOK)
-			do.HTTP("node", "DELETE", "/kv/delete:twice").
-				WithHelp("Your server should handle repeated deletions gracefully.\nDeleting the same key twice should remain idempotent (return 200 OK).").
-				Got().Status(http.StatusOK)
+			do.HTTP("primary", "PUT", "/kv/delete:twice", "value").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should accept PUT requests and return 200 OK.\n" +
+					"Ensure your HTTP handler processes PUT requests to /kv/{key}.")
+			do.HTTP("primary", "DELETE", "/kv/delete:twice").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should successfully delete existing keys.\n" +
+					"Implement proper key removal in your storage logic.")
+			do.HTTP("primary", "DELETE", "/kv/delete:twice").
+				Returns().Status(http.StatusOK).
+				Assert("Your server should handle repeated deletions gracefully.\n" +
+					"Deleting the same key twice should remain idempotent (return 200 OK).")
 
 			// Empty key
-			do.HTTP("node", "DELETE", "/kv/").
-				WithHelp("Your server accepted an empty key when it should reject it.\nAdd validation to return 400 Bad Request for empty keys.").
-				Got().Status(http.StatusBadRequest).Body("key cannot be empty\n")
+			do.HTTP("primary", "DELETE", "/kv/").
+				Returns().Status(http.StatusBadRequest).Body("key cannot be empty\n").
+				Assert("Your server accepted an empty key when it should reject it.\n" +
+					"Add validation to return 400 Bad Request for empty keys.")
 		}).
 
 		// 7
 		Test("Concurrent Operations", func(do *suite.Do) {
 			// Test concurrent writes
-			putHelp := "Your server should handle concurrent PUT requests correctly.\nEnsure thread-safety in your storage implementation."
+			putKV := func(key, value string) func() {
+				return func() {
+					do.HTTP("primary", "PUT", "/kv/concurrent:"+key, value).
+						Returns().Status(http.StatusOK).
+						Assert("Your server should handle concurrent PUT requests correctly.\n" +
+							"Ensure thread-safety in your storage implementation.")
+				}
+			}
+
 			do.Concurrently(
-				func() {
-					do.HTTP("node", "PUT", "/kv/concurrent:key1", "value1").
-						WithHelp(putHelp).
-						Got().Status(http.StatusOK)
-				},
-				func() {
-					do.HTTP("node", "PUT", "/kv/concurrent:key2", "value2").
-						WithHelp(putHelp).
-						Got().Status(http.StatusOK)
-				},
-				func() {
-					do.HTTP("node", "PUT", "/kv/concurrent:key3", "value3").
-						WithHelp(putHelp).
-						Got().Status(http.StatusOK)
-				},
+				putKV("key1", "value1"),
+				putKV("key2", "value2"),
+				putKV("key3", "value3"),
 			)
 
 			// Verify all concurrent writes succeeded
-			getHelp := "Your server should store all concurrent writes correctly.\nEnsure no data corruption or loss occurs during concurrent operations."
-			do.HTTP("node", "GET", "/kv/concurrent:key1").
-				WithHelp(getHelp).
-				Got().Status(http.StatusOK).Body("value1")
-			do.HTTP("node", "GET", "/kv/concurrent:key2").
-				WithHelp(getHelp).
-				Got().Status(http.StatusOK).Body("value2")
-			do.HTTP("node", "GET", "/kv/concurrent:key3").
-				WithHelp(getHelp).
-				Got().Status(http.StatusOK).Body("value3")
+			for i := 1; i <= 3; i++ {
+				do.HTTP("primary", "GET", fmt.Sprintf("/kv/concurrent:key%d", i)).
+					Returns().Status(http.StatusOK).Body(fmt.Sprintf("value%d", i)).
+					Assert("Your server should store all concurrent writes correctly.\n" +
+						"Ensure no data corruption or loss occurs during concurrent operations.")
+			}
 		}).
 
 		// 8
 		Test("Check Allowed HTTP Methods", func(do *suite.Do) {
-			notAllowedHelp := "Your server should reject unsupported HTTP methods.\nAdd logic to return 405 Method Not Allowed for unsupported methods."
-
-			// POST not allowed
-			do.HTTP("node", "POST", "/kv/test:key").
-				WithHelp(notAllowedHelp).
-				Got().Status(http.StatusMethodNotAllowed).Body("method not allowed\n")
-
-			// PATCH not allowed
-			do.HTTP("node", "PATCH", "/kv/test:key").
-				WithHelp(notAllowedHelp).
-				Got().Status(http.StatusMethodNotAllowed).Body("method not allowed\n")
+			// POST & PATCH /kv/{key} not allowed
+			methods := []string{"POST", "PATCH"}
+			for _, method := range methods {
+				do.HTTP("primary", method, "/kv/test:key").
+					Returns().Status(http.StatusMethodNotAllowed).Body("method not allowed\n").
+					Assert("Your server should reject unsupported HTTP methods.\n" +
+						"Add logic to return 405 Method Not Allowed for unsupported methods.")
+			}
 		})
 }

@@ -18,7 +18,7 @@ var (
 
 // Suite represents a test suite with setup and test functions
 type Suite struct {
-	setupFn func(*Do) error
+	setupFn func(*Do)
 	tests   []TestFunc
 }
 
@@ -34,9 +34,8 @@ func New() *Suite {
 }
 
 // Setup adds a setup function that runs before all tests
-func (s *Suite) Setup(fn func(*Do) error) *Suite {
+func (s *Suite) Setup(fn func(*Do)) *Suite {
 	s.setupFn = fn
-
 	return s
 }
 
@@ -47,26 +46,40 @@ func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 	return s
 }
 
-// Run executes the test suite and displays results
-func (s *Suite) Run(ctx context.Context, challengeKey, stageKey, stageName string) bool {
-	fmt.Printf("Running %s: %s\n\n", stageKey, stageName)
+// Run executes the test suite and returns results
+func (s *Suite) Run(ctx context.Context, name string) bool {
+	fmt.Printf("Running %s\n\n", name)
 
-	do := NewDo()
+	do := NewDo(ctx)
 	defer do.Done()
 
+	// Run setup function if defined
+	var failed bool
 	if s.setupFn != nil {
-		if err := s.setupFn(do); err != nil {
-			fmt.Printf("%s Setup failed\n", crossMark)
-			fmt.Printf("   %s\n", err)
-		}
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					failed = true
+
+					fmt.Printf("%s %s\n", crossMark, "SETUP")
+					fmt.Printf("\n%s\n", err)
+				}
+			}()
+
+			s.setupFn(do)
+		}()
 	}
 
-	// Run tests sequentially, stopping on first failure
-	passed := 0
-	failed := false
+	// Run each test, stopping on first failure or cancellation
 	for _, test := range s.tests {
 		if failed {
 			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return false
+		default:
 		}
 
 		func() {
@@ -80,20 +93,16 @@ func (s *Suite) Run(ctx context.Context, challengeKey, stageKey, stageName strin
 			}()
 
 			test.Fn(do)
-
-			passed++
-			fmt.Printf("%s %s\n", checkMark, test.Name)
 		}()
+
+		fmt.Printf("%s %s\n", checkMark, test.Name)
 	}
 
-	fmt.Println()
-
-	total := len(s.tests)
-	if passed == total {
-		fmt.Printf("%s %s\n", bold("PASSED"), checkMark)
+	if failed {
+		fmt.Printf("\n%s %s\n", bold("FAILED"), crossMark)
 	} else {
-		fmt.Printf("%s %s\n", bold("FAILED"), crossMark)
+		fmt.Printf("\n%s %s\n", bold("PASSED"), checkMark)
 	}
 
-	return passed == total
+	return !failed
 }

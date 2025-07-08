@@ -1,13 +1,10 @@
 package suite
 
 import (
-	"bytes"
-	"errors"
+	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"net/http"
 	"os/exec"
 	"sync"
 	"syscall"
@@ -18,9 +15,11 @@ import (
 
 const scriptPath = "./run.sh"
 
-// Do provides test operations for running services and making assertions
+// Do is the test harness & runner
 type Do struct {
 	services *threadsafe.Map[string, *Service]
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // Service represents a running service process
@@ -29,14 +28,17 @@ type Service struct {
 	cmd  *exec.Cmd
 }
 
-// NewDo creates a new Do instance
-func NewDo() *Do {
+// NewDo creates a new Do instance with context-aware cleanup
+func NewDo(ctx context.Context) *Do {
+	doCtx, cancel := context.WithCancel(ctx)
 	return &Do{
 		services: threadsafe.NewMap[string, *Service](),
+		ctx:      doCtx,
+		cancel:   cancel,
 	}
 }
 
-// getService retrieves a service by name
+// getService retrieves a service by name or panics if not found
 func (do *Do) getService(service string) *Service {
 	if svc, exists := do.services.Get(service); exists {
 		return svc
@@ -47,7 +49,13 @@ func (do *Do) getService(service string) *Service {
 
 // Run starts a service process using the run.sh script
 func (do *Do) Run(service string, port int, args ...string) *Do {
-	cmd := exec.Command(scriptPath, args...)
+	select {
+	case <-do.ctx.Done():
+		return do
+	default:
+	}
+
+	cmd := exec.CommandContext(do.ctx, scriptPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	err := cmd.Start()
@@ -56,44 +64,39 @@ func (do *Do) Run(service string, port int, args ...string) *Do {
 	}
 
 	do.services.Set(service, &Service{port: port, cmd: cmd})
-
 	return do
 }
 
-// WaitForPort waits for a service to accept connections on its port
+// WaitForPort waits for a service to accept connections on its port with timeout
 func (do *Do) WaitForPort(service string) {
 	svc := do.getService(service)
 	host := fmt.Sprintf("127.0.0.1:%d", svc.port)
 
-	deadline := time.Now().Add(30 * time.Second)
-	interval := 5 * time.Millisecond
-	for time.Now().Before(deadline) {
-		if interval > time.Second {
-			fmt.Printf("Attempting connection to %s in %s...\n", host, interval.Round(time.Second))
+	succeeded := Eventually(do.ctx, func() bool {
+		conn, err := net.DialTimeout("tcp", host, 100*time.Millisecond)
+		if err != nil {
+			return false
 		}
-		time.Sleep(interval)
 
-		conn, err := net.Dial("tcp", host)
-		if err == nil {
-			conn.Close()
+		conn.Close()
+		return true
+	}, 15*time.Second)
 
-			if interval > time.Second {
-				fmt.Println()
-			}
+	if !succeeded {
+		select {
+		case <-do.ctx.Done():
 			return
+		default:
+			log.Fatalf(
+				"\nCould not connect to http://%s.\n\n"+
+					"Possible issues:\n"+
+					"- run.sh script not executable (run: chmod +x run.sh)\n"+
+					"- Server not starting on port %d\n"+
+					"- Server crashing during startup\n\n"+
+					"Debug with: ./run.sh and check for error messages", host, svc.port,
+			)
 		}
-
-		interval *= 2
 	}
-
-	log.Fatalf(
-		"\nCould not connect to http://%s.\n\n"+
-			"Possible issues:\n"+
-			"- run.sh script not executable (run: chmod +x run.sh)\n"+
-			"- Server not starting on port %d\n"+
-			"- Server crashing during startup\n\n"+
-			"Debug with: ./run.sh and check for error messages", host, svc.port,
-	)
 }
 
 // Concurrently runs multiple functions in parallel and waits for completion
@@ -112,111 +115,79 @@ func (do *Do) Concurrently(fns ...func()) {
 	wg.Wait()
 }
 
-// Eventually waits for a condition to become true within a timeout
-func (do *Do) Eventually(condition func() bool) {
-	deadline := time.Now().Add(30 * time.Second)
-	interval := 5 * time.Millisecond
-
-	for time.Now().Before(deadline) {
-		time.Sleep(interval)
-
-		if condition() {
-			return
-		}
-
-		interval *= 2
-	}
-
-	panic("Eventually condition failed after timeout")
-}
-
 // Done cleans up all running services
 func (do *Do) Done() {
+	do.cancel()
+	
 	do.services.Range(func(_ string, svc *Service) bool {
-		pgid := svc.cmd.Process.Pid
-		err := syscall.Kill(-pgid, syscall.SIGTERM)
-		if err != nil {
-			fmt.Println(red("Error stopping service running @"), red(svc.port))
-			return true
-		}
-
-		done := make(chan error, 1)
-		go func() {
-			done <- svc.cmd.Wait()
-		}()
-
-		select {
-		case <-done:
-		case <-time.After(30 * time.Second):
-			syscall.Kill(-pgid, syscall.SIGKILL)
-			<-done
-		}
-
+		do.stopService(svc)
 		return true
 	})
 }
 
-// HTTP makes an HTTP request to a service
-func (do *Do) HTTP(service, method, path string, args ...any) *HTTPAssert {
-	svc := do.getService(service)
-	client := &http.Client{Timeout: 30 * time.Second}
+// stopService stops a single service with proper cleanup
+func (do *Do) stopService(svc *Service) {
+	if svc.cmd == nil || svc.cmd.Process == nil {
+		return
+	}
 
+	pgid := svc.cmd.Process.Pid
+	
+	// Send SIGTERM to process group for graceful shutdown
+	err := syscall.Kill(-pgid, syscall.SIGTERM)
+	if err != nil {
+		fmt.Println(red("Error stopping service running @"), red(svc.port))
+		return
+	}
+
+	// Wait for graceful exit, force kill if timeout
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.cmd.Wait()
+	}()
+
+	select {
+	case <-done:
+		// Process exited gracefully
+	case <-time.After(5 * time.Second):
+		fmt.Printf("Service on port %d not responding to SIGTERM, force killing...\n", svc.port)
+		syscall.Kill(-pgid, syscall.SIGKILL)
+		<-done
+	}
+}
+
+// HTTP creates an HTTP promise for a service
+func (do *Do) HTTP(service, method, path string, args ...any) *HTTPPromise {
+	svc := do.getService(service)
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.port, path)
+
+	// Extract optional request body and headers
 	var body []byte
 	if len(args) >= 1 {
 		body = []byte(args[0].(string))
 	}
 
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.port, path)
-	req, err := http.NewRequest(method, url, bytes.NewReader([]byte(body)))
-
-	if err != nil {
-		return &HTTPAssert{ErrAssert: ErrAssert{err}}
-	}
-
+	var headers map[string]string
 	if len(args) >= 2 {
-		headers := args[1].(map[string]string)
-		for k, v := range headers {
-			req.Header.Add(k, v)
-		}
+		headers = args[1].(map[string]string)
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return &HTTPAssert{ErrAssert: ErrAssert{err}}
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return &HTTPAssert{ErrAssert: ErrAssert{err}}
-	}
-
-	return &HTTPAssert{
-		requestMethod: method,
-		requestURL:    path,
-		requestBody:   string(body),
-
-		responseBody:   string(responseBody),
-		responseStatus: resp.StatusCode,
+	return &HTTPPromise{
+		method:  method,
+		url:     url,
+		headers: headers,
+		body:    body,
+		timing:  TimingImmediate,
+		ctx:     do.ctx,
 	}
 }
 
 // Exec runs a command using the run.sh script
-func (do *Do) Exec(args ...string) *CLIAssert {
-	cmd := exec.Command(scriptPath, args...)
-
-	stdout, err := cmd.Output()
-	if err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
-			return &CLIAssert{
-				output:   string(exitError.Stderr),
-				exitCode: exitError.ExitCode(),
-			}
-		}
-
-		return &CLIAssert{ErrAssert: ErrAssert{err}}
+func (do *Do) Exec(args ...string) *CLIPromise {
+	return &CLIPromise{
+		command: scriptPath,
+		args:    args,
+		timing:  TimingImmediate,
+		ctx:     do.ctx,
 	}
-
-	return &CLIAssert{output: string(stdout)}
 }
