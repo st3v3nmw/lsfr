@@ -6,11 +6,11 @@
 
 **Test behavior, not implementation** - Tests validate external interfaces and observable behavior, giving flexibility in implementation while ensuring correctness. Focus on what the system does, not how it does it.
 
-**Fail with context and guidance** - When tests fail, provide detailed information about what went wrong and actionable advice for fixing it. Test output shows exactly what the system did versus what was expected, with enough context to troubleshoot without guesswork.
+**Expressive, fluent test design** - Checks read like natural language through method chaining, making them easy to write, understand, and maintain. Chained methods should read left-to-right.
 
 **Build incrementally** - Each test builds on previous ones, establishing foundations before testing advanced features. Tests run sequentially and stop on first failure which makes debugging straightforward.
 
-**Expressive, fluent test design** - Checks read like natural language through method chaining, making them easy to write, understand, and maintain. Chained methods should read left-to-right.
+**Fail with context and guidance** - When tests fail, provide detailed information about what went wrong and actionable advice for fixing it. Test output shows exactly what the system did versus what was expected, with enough context to troubleshoot without guesswork.
 
 ## Assertions
 
@@ -47,6 +47,8 @@ After `.Returns()`, it's possible to do different checks depending on the domain
 CLI(args...).Returns().Exit(X).Output(Y).Assert(helpMessage)
 ```
 
+HTTP:
+
 ```go
 // .Within(Y) checks that a request completes within the specified duration
 // .JSON(path, Z) checks parts of the JSON response using JSONPath syntax
@@ -60,16 +62,14 @@ To add new domains, implement `Promise[T,A]` and `DomainAssert`. See `suite.HTTP
 For more complex tests, we need to run tests over a time frame. That's where `.Eventually()` and `.Consistently()`  come in:
 
 ```go
-// Consistently checks that the condition is always true for a given time period (e.g. 5s)
+// Consistently checks that the condition is always true for a given time period e.g. 5s
 HTTP("primary", "/kv/stable", "GET").Consistently().Returns().Status(200).Body("hey")
-```
 
-```go
-// Eventually checks that the condition becomes true within a given time period (e.g. 5s)
+// Eventually checks that the condition becomes true within a given time period e.g. 5s
 HTTP("replica", "/kv/stable", "GET").Eventually().Returns().Status(200).Body("hey")
 ```
 
-To add new timing modes, extend `timing` enum and `Eventually/Consistently` logic
+To add new timing modes, extend the `timing` enum and the `Eventually/Consistently` logic.
 
 ### Error Messages
 
@@ -135,7 +135,7 @@ Expected output "Usage: myapp [options]", got ""
 suite.New().
     // 0
     Setup(func(do *suite.Do) {
-        do.Start("primary", 8888)
+        do.Start("primary")
         do.WaitForPort("primary")
 
         // Clear key-value store

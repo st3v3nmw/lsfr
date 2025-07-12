@@ -1,6 +1,6 @@
 # lsfr
 
-lsfr is a CLI tool for learning how to build complex systems from scratch. It helps developers take on challenges like distributed databases, message queues, load balancers, or even LLMs by implementing them step-by-step through progressive tests.
+_lsfr_ is a CLI tool for learning how to build complex systems from scratch. It helps developers tackle challenges like distributed databases, compilers, and message queues by breaking them down into manageable stages with progressive testing.
 
 ## Structure
 
@@ -21,12 +21,12 @@ This repository contains the implementation of the lsfr CLI tool itself:
 
 ## Coding Guidelines
 
+### Planning
+
+- Before writing any code, come up with a plan first for review
+
 ### Comments
 
 - Add comments only for things that are not immediately obvious from the code or to demarcate & help break up large functions into logical sections
 - Add comments to public functions/structs and important private functions/structs
 - Comments should be concise
-
-### Tests
-
-- DON'T attempt to run tests or builds yourself, I'll do that

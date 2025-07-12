@@ -10,7 +10,7 @@
 
 **Make the common case effortless** - The most frequent workflow gets the shortest commands with minimal flags. State tracking supports natural stage progression without repetitive typing.
 
-**Conversation as the norm** - Command-line interaction is naturally conversational: run a test, get feedback, adjust code, and try again. The CLI embraces this by suggesting corrections when tests fail, tracking progress between commands, and providing contextual guidance based on current stage in the learning process.
+**Make interaction conversational** - Command-line interaction is naturally conversational: run a test, get feedback, adjust code, and try again. The CLI embraces this by suggesting corrections when tests fail, tracking progress between commands, and providing contextual guidance based on current stage in the learning process.
 
 ## Starting Challenges
 
@@ -20,7 +20,7 @@
 # Basic usage (defaults to current directory)
 $ lsfr new kv-store
 Created challenge in current directory.
-  run.sh       - Your implementation entry point
+  run.sh       - Builds and runs your implementation
   README.md    - Challenge overview and requirements
   lsfr.yaml    - Tracks your progress
 
@@ -29,7 +29,7 @@ Implement http-api stage, then run 'lsfr test'.
 # Specify custom path
 $ lsfr new kv-store my-kv-store
 Created challenge in directory: ./my-kv-store
-  run.sh       - Your implementation entry point
+  run.sh       - Builds and runs your implementation
   README.md    - Challenge overview and requirements
   lsfr.yaml    - Tracks your progress
 
@@ -44,7 +44,7 @@ stages:
 
 # Runner script
 $ cat run.sh
-#!/bin/bash
+#!/bin/bash -e
 
 # This script builds and runs your implementation
 # lsfr will execute this script to start your program
@@ -52,9 +52,9 @@ $ cat run.sh
 
 echo "Replace this line with the command that runs your implementation."
 # Examples:
-#   go run ./cmd/server "$@"
-#   python main.py "$@"
-#   ./my-program "$@"
+#   exec go run ./cmd/server "$@"
+#   exec python main.py "$@"
+#   exec ./my-program "$@"
 
 # README
 $ cat README.md
@@ -119,7 +119,7 @@ Running http-api: Basic Operations
 ✓ GET operations
 ✗ Error handling
 
-PUT http://127.0.0.1:8888/kv/ "foo"
+PUT http://127.0.0.1:45123/kv/ "foo"
   Expected response: "key cannot be empty"
   Actual response: ""
 
@@ -128,7 +128,7 @@ PUT http://127.0.0.1:8888/kv/ "foo"
 
 FAILED ✗
 
-Read the guide: lsfr.io/c/kv-store/http-api
+Read the guide: lsfr.io/kv-store/http-api
 
 # Stage that doesn't exist
 $ lsfr test unknown
@@ -150,7 +150,7 @@ Available stages:
 $ lsfr next
 Advanced to persistence: Data Persistence
 
-Read the guide: lsfr.io/c/kv-store/persistence
+Read the guide: lsfr.io/kv-store/persistence
 
 Run 'lsfr test' when ready.
 
@@ -169,7 +169,7 @@ Running http-api: Basic Operations
 ✓ PUT operations
 ✗ GET operations
 
-GET http://127.0.0.1:8888/kv/foo
+GET http://127.0.0.1:45123/kv/foo
   Expected 200 OK, got 404 Not Found
 
   Your server should return stored values with GET requests.
@@ -185,7 +185,7 @@ You've completed all stages for kv-store! 🎉
 
 Share your work: tag your repo with 'lsfr-go' (or your language).
 
-Consider trying another challenge at lsfr.io/challenges.
+Consider trying another challenge at lsfr.io
 ```
 
 ## Information Commands
@@ -206,7 +206,7 @@ Progress:
   clustering        - Replication and eventual consistency
   fault-tolerance   - Handle network partitions
 
-Read the guide: lsfr.io/c/kv-store/http-api
+Read the guide: lsfr.io/kv-store/http-api
 
 Implement persistence, then run 'lsfr test'.
 ```
@@ -218,9 +218,10 @@ Implement persistence, then run 'lsfr test'.
 $ lsfr list
 Available challenges:
 
-  kv-store           - Distributed key-value store (4 stages)
-  message-queue      - Distributed message queue (3 stages)
-  load-balancer      - HTTP Load balancer (3 stages)
+  kv-store           - Distributed Key-Value Store (8 stages)
+  compiler           - Compiler (16 stages)
+  message-queue      - Message Queue (6 stages)
+  llm                - Large Language Model (10 stages)
 
 Start with: lsfr new <challenge-name>
 ```

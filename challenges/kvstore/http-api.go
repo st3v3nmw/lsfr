@@ -12,14 +12,14 @@ func HTTPAPIStage() *suite.Suite {
 	return suite.New().
 		// 0
 		Setup(func(do *suite.Do) {
-			do.Start("primary", 8888)
+			do.Start("primary")
 			do.WaitForPort("primary")
 
 			// Clear key-value store
-			do.HTTP("primary", "POST", "/clear").
+			do.HTTP("primary", "DELETE", "/clear").
 				Returns().Status(http.StatusOK).
 				Assert("Your server should implement a /clear endpoint.\n" +
-					"Add a POST /clear method that deletes all key-value pairs.")
+					"Add a DELETE /clear method that deletes all key-value pairs.")
 		}).
 
 		// 1
@@ -41,13 +41,13 @@ func HTTPAPIStage() *suite.Suite {
 			do.HTTP("primary", "PUT", "/kv/tanzania:capital", "Dodoma").
 				Returns().Status(http.StatusOK).
 				Assert("Your server should allow overwriting existing keys.\n" +
-					"PUT requests should update the value of existing keys.")
+					"Ensure PUT requests update the value of existing keys.")
 
 			// Verify overwrite worked
 			do.HTTP("primary", "GET", "/kv/tanzania:capital").
 				Returns().Status(http.StatusOK).Body("Dodoma").
 				Assert("Your server should return the updated value after overwrite.\n" +
-					"GET requests should return the most recently stored value.")
+					"Ensure GET requests return the most recently stored value.")
 		}).
 
 		// 2
@@ -79,7 +79,7 @@ func HTTPAPIStage() *suite.Suite {
 					"Ensure your implementation doesn't have arbitrary length limits.")
 
 			// Special characters in key/value
-			do.HTTP("primary", "PUT", "/kv/special:key-with_symbols.123", "value with spaces & symbols!").
+			do.HTTP("primary", "PUT", "/kv/special:key-with_symbols.123", "value with spaces & symbols! \t").
 				Returns().Status(http.StatusOK).
 				Assert("Your server should handle special characters in keys and values.\n" +
 					"Ensure proper URL path parsing and value encoding/decoding.")
@@ -178,7 +178,7 @@ func HTTPAPIStage() *suite.Suite {
 			do.HTTP("primary", "DELETE", "/kv/delete:twice").
 				Returns().Status(http.StatusOK).
 				Assert("Your server should handle repeated deletions gracefully.\n" +
-					"Deleting the same key twice should remain idempotent (return 200 OK).")
+					"Deleting the same key twice should be idempotent (return 200 OK).")
 
 			// Empty key
 			do.HTTP("primary", "DELETE", "/kv/").
@@ -203,10 +203,15 @@ func HTTPAPIStage() *suite.Suite {
 				putKV("key1", "value1"),
 				putKV("key2", "value2"),
 				putKV("key3", "value3"),
+				putKV("key4", "value4"),
+				putKV("key5", "value5"),
+				putKV("key6", "value6"),
+				putKV("key7", "value7"),
+				putKV("key8", "value8"),
 			)
 
 			// Verify all concurrent writes succeeded
-			for i := 1; i <= 3; i++ {
+			for i := 1; i <= 8; i++ {
 				do.HTTP("primary", "GET", fmt.Sprintf("/kv/concurrent:key%d", i)).
 					Returns().Status(http.StatusOK).Body(fmt.Sprintf("value%d", i)).
 					Assert("Your server should store all concurrent writes correctly.\n" +

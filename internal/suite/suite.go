@@ -95,7 +95,9 @@ func (s *Suite) Run(ctx context.Context, name string) bool {
 			test.Fn(do)
 		}()
 
-		fmt.Printf("%s %s\n", checkMark, test.Name)
+		if !failed {
+			fmt.Printf("%s %s\n", checkMark, test.Name)
+		}
 	}
 
 	if failed {

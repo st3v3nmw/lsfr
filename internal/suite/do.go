@@ -18,8 +18,9 @@ const scriptPath = "./run.sh"
 // Do provides the test harness and acts as the test runner
 type Do struct {
 	services *threadsafe.Map[string, *Service]
-	ctx      context.Context
-	cancel   context.CancelFunc
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // Service represents a running service process
@@ -47,18 +48,30 @@ func (do *Do) getService(service string) *Service {
 	panic(fmt.Sprintf("service %q not found", service))
 }
 
-// Start starts a service process using the run.sh script
-func (do *Do) Start(service string, port int, args ...string) *Do {
+// Start starts a service process using the run.sh script with an OS-assigned port
+func (do *Do) Start(service string, args ...string) *Do {
 	select {
 	case <-do.ctx.Done():
 		return do
 	default:
 	}
 
+	// Get OS-assigned port
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get OS-assigned port: %v", err))
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	portArg := fmt.Sprintf("--port=%d", port)
+	args = append([]string{portArg}, args...)
+
+	// Start the service
 	cmd := exec.CommandContext(do.ctx, scriptPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		panic(err.Error())
 	}

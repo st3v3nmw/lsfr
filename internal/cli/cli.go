@@ -26,7 +26,7 @@ var (
 func createChallengeFiles(challenge *registry.Challenge, targetPath string) error {
 	// run.sh
 	scriptPath := filepath.Join(targetPath, "run.sh")
-	scriptTemplate := `#!/bin/bash
+	scriptTemplate := `#!/bin/bash -e
 
 # This script builds and runs your implementation.
 # lsfr will execute this script to start your program.
@@ -34,9 +34,9 @@ func createChallengeFiles(challenge *registry.Challenge, targetPath string) erro
 
 echo "Replace this line with the command that runs your implementation."
 # Examples:
-#   go run ./cmd/server "$@"
-#   python main.py "$@"
-#   ./my-program "$@"
+#   exec go run ./cmd/server "$@"
+#   exec python main.py "$@"
+#   exec ./my-program "$@"
 `
 
 	if err := os.WriteFile(scriptPath, []byte(scriptTemplate), 0755); err != nil {
@@ -100,7 +100,7 @@ func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 		fmt.Printf("Created challenge in directory: ./%s\n", targetPath)
 	}
 
-	fmt.Println("  run.sh       - Your implementation entry point")
+	fmt.Println("  run.sh       - Builds and runs your implementation")
 	fmt.Println("  README.md    - Challenge overview and requirements")
 	fmt.Printf("  lsfr.yaml    - Tracks your progress\n\n")
 
@@ -187,8 +187,8 @@ func TestStage(ctx context.Context, cmd *commands.Command) error {
 	if passed {
 		fmt.Printf("\nRun %s to advance to the next stage.\n", yellow("'lsfr next'"))
 	} else {
-		guideURL := fmt.Sprintf("https://lsfr.io/c/%s/%s", challengeKey, stageKey)
-		fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/c/%s/%s\033]8;;\033\\\n", guideURL, challengeKey, stageKey)
+		guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", challengeKey, stageKey)
+		fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n", guideURL, challengeKey, stageKey)
 	}
 
 	return err
@@ -234,7 +234,7 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 		}
 		fmt.Printf("You've completed all stages for %s! 🎉\n\n", cfg.Challenge)
 		fmt.Printf("Share your work: tag your repo with 'lsfr-go' (or your language).\n\n")
-		fmt.Println("Consider trying another challenge at \033]8;;https://lsfr.io/challenges\033\\lsfr.io/challenges\033]8;;\033\\")
+		fmt.Println("Consider trying another challenge at \033]8;;https://lsfr.io/\033\\lsfr.io\033]8;;\033\\")
 
 		return config.Save(cfg)
 	}
@@ -252,8 +252,8 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	}
 
 	fmt.Printf("Advanced to %s: %s\n\n", nextStageKey, nextStage.Name)
-	guideURL := fmt.Sprintf("https://lsfr.io/c/%s/%s", cfg.Challenge, nextStageKey)
-	fmt.Printf("Read the guide: \033]8;;%s\033\\lsfr.io/c/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, nextStageKey)
+	guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", cfg.Challenge, nextStageKey)
+	fmt.Printf("Read the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, nextStageKey)
 	fmt.Println("Run 'lsfr test' when ready.")
 
 	return nil
@@ -293,8 +293,8 @@ func ShowStatus(ctx context.Context, cmd *commands.Command) error {
 	}
 
 	// Next steps
-	guideURL := fmt.Sprintf("https://lsfr.io/c/%s/%s", cfg.Challenge, cfg.Stages.Current)
-	fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/c/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, cfg.Stages.Current)
+	guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", cfg.Challenge, cfg.Stages.Current)
+	fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, cfg.Stages.Current)
 	fmt.Printf("Implement %s, then run 'lsfr test'.\n", cfg.Stages.Current)
 
 	return nil
