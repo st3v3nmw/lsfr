@@ -12,16 +12,17 @@ import (
 	"time"
 )
 
+const pollInterval = 100 * time.Millisecond
+
 // Eventually checks that the condition becomes true within the given period
 func Eventually(ctx context.Context, executor func() bool, timeout time.Duration) bool {
-	interval := 100 * time.Millisecond
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			return false
-		case <-time.After(interval):
+		case <-time.After(pollInterval):
 			if executor() {
 				return true
 			}
@@ -33,14 +34,13 @@ func Eventually(ctx context.Context, executor func() bool, timeout time.Duration
 
 // Consistently checks that the condition is always true for the given period
 func Consistently(ctx context.Context, executor func() bool, timeout time.Duration) bool {
-	interval := 100 * time.Millisecond
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			return false
-		case <-time.After(interval):
+		case <-time.After(pollInterval):
 			if !executor() {
 				return false
 			}
@@ -50,25 +50,29 @@ func Consistently(ctx context.Context, executor func() bool, timeout time.Durati
 	return true
 }
 
-// DomainAssert represents assertion behavior for domain-specific operations
-type DomainAssert interface {
-	// Core
+// Assert defines the interface for executing and validating test assertions.
+// Implementations handle domain-specific operations like HTTP requests or CLI commands.
+type Assert interface {
+	// Assert executes the operation and validates the result
 	Assert(help string)
+	// immediately executes the operation once and returns whether it meets expectations
 	immediately() bool
-
-	// Helpers
+	// check validates the result and panics with formatted error message on failure
+	check()
+	// formatHelp formats help text with proper indentation for error messages
 	formatHelp() string
 }
 
 // Compile-time type checks
-var _ DomainAssert = (*HTTPAssert)(nil)
-var _ DomainAssert = (*CLIAssert)(nil)
+var _ Assert = (*HTTPAssert)(nil)
+var _ Assert = (*CLIAssert)(nil)
 
-type BaseAssert struct {
+// AssertBase provides common assertion functionality
+type AssertBase struct {
 	help string
 }
 
-func (a *BaseAssert) formatHelp() string {
+func (a *AssertBase) formatHelp() string {
 	if a.help != "" {
 		return "\n\n  " + strings.ReplaceAll(a.help, "\n", "\n  ")
 	}
@@ -76,8 +80,9 @@ func (a *BaseAssert) formatHelp() string {
 	return ""
 }
 
+// HTTPAssert provides assertions for HTTP response validation
 type HTTPAssert struct {
-	BaseAssert
+	AssertBase
 
 	promise        *HTTPPromise
 	responseBody   string
@@ -99,38 +104,20 @@ func (a *HTTPAssert) Body(content string) *HTTPAssert {
 	return a
 }
 
-// Execute and assert results
 func (a *HTTPAssert) Assert(help string) {
 	a.help = help
 
-	// Execute deferred operation
 	p := a.promise
 	switch p.timing {
 	case TimingEventually:
-		Eventually(p.ctx, a.immediately, 5*time.Second)
+		Eventually(p.ctx, a.immediately, p.timeout)
 	case TimingConsistently:
-		Consistently(p.ctx, a.immediately, 5*time.Second)
+		Consistently(p.ctx, a.immediately, p.timeout)
 	default:
 		a.immediately()
 	}
 
-	// Assert
-	if a.responseStatus != a.expectedStatus {
-		msg := fmt.Sprintf("%s %s\n  Expected %d %s, got %d %s%s",
-			p.method, p.url,
-			a.expectedStatus, http.StatusText(a.expectedStatus),
-			a.responseStatus, http.StatusText(a.responseStatus),
-			a.formatHelp())
-		panic(msg)
-	}
-
-	if a.responseBody != a.expectedBody {
-		msg := fmt.Sprintf("%s %s\n  Expected response: %q\n  Actual response: %q%s",
-			p.method, p.url,
-			a.expectedBody, a.responseBody,
-			a.formatHelp())
-		panic(msg)
-	}
+	a.check()
 }
 
 func (a *HTTPAssert) immediately() bool {
@@ -163,9 +150,30 @@ func (a *HTTPAssert) immediately() bool {
 	return a.responseStatus == a.expectedStatus && a.responseBody == a.expectedBody
 }
 
+func (a *HTTPAssert) check() {
+	p := a.promise
+
+	if a.responseStatus != a.expectedStatus {
+		msg := fmt.Sprintf("%s %s\n  Expected %d %s, got %d %s%s",
+			p.method, p.url,
+			a.expectedStatus, http.StatusText(a.expectedStatus),
+			a.responseStatus, http.StatusText(a.responseStatus),
+			a.formatHelp())
+		panic(msg)
+	}
+
+	if a.responseBody != a.expectedBody {
+		msg := fmt.Sprintf("%s %s\n  Expected response: %q\n  Actual response: %q%s",
+			p.method, p.url,
+			a.expectedBody, a.responseBody,
+			a.formatHelp())
+		panic(msg)
+	}
+}
+
 // CLIAssert provides CLI command output and exit code assertions
 type CLIAssert struct {
-	BaseAssert
+	AssertBase
 
 	promise  *CLIPromise
 	output   string
@@ -187,37 +195,20 @@ func (a *CLIAssert) Output(text string) *CLIAssert {
 	return a
 }
 
-// Execute and assert results
 func (a *CLIAssert) Assert(help string) {
 	a.help = help
 
-	// Execute deferred operation
 	p := a.promise
 	switch p.timing {
 	case TimingEventually:
-		Eventually(p.ctx, a.immediately, 5*time.Second)
+		Eventually(p.ctx, a.immediately, p.timeout)
 	case TimingConsistently:
-		Consistently(p.ctx, a.immediately, 5*time.Second)
+		Consistently(p.ctx, a.immediately, p.timeout)
 	default:
 		a.immediately()
 	}
 
-	// Assert
-	if a.exitCode != a.expectedExitCode {
-		msg := fmt.Sprintf("%s\n  Expected exit code %d, got %d%s",
-			p.command,
-			a.expectedExitCode, a.exitCode,
-			a.formatHelp())
-		panic(msg)
-	}
-
-	if a.output != a.expectedOutput {
-		msg := fmt.Sprintf("%s\n  Expected output: %q\n  Actual output: %q%s",
-			p.command,
-			a.expectedOutput, a.output,
-			a.formatHelp())
-		panic(msg)
-	}
+	a.check()
 }
 
 func (a *CLIAssert) immediately() bool {
@@ -238,4 +229,24 @@ func (a *CLIAssert) immediately() bool {
 	}
 
 	return a.exitCode == a.expectedExitCode && a.output == a.expectedOutput
+}
+
+func (a *CLIAssert) check() {
+	p := a.promise
+
+	if a.exitCode != a.expectedExitCode {
+		msg := fmt.Sprintf("%s\n  Expected exit code %d, got %d%s",
+			p.command,
+			a.expectedExitCode, a.exitCode,
+			a.formatHelp())
+		panic(msg)
+	}
+
+	if a.output != a.expectedOutput {
+		msg := fmt.Sprintf("%s\n  Expected output: %q\n  Actual output: %q%s",
+			p.command,
+			a.expectedOutput, a.output,
+			a.formatHelp())
+		panic(msg)
+	}
 }

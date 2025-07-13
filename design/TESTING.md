@@ -55,18 +55,20 @@ HTTP:
 HTTP(service, method, path, args...).Returns().Status(X).Within(Y).JSON("$.a[:1].b", Z).Assert(helpMessage)
 ```
 
-To add new domains, implement `Promise[T,A]` and `DomainAssert`. See `suite.HTTPPromise` & `suite.HTTPAssert` for reference.
-
 ### Timing
 
-For more complex tests, we need to run tests over a time frame. That's where `.Eventually()` and `.Consistently()`  come in:
+For more complex tests, we need to run tests over a time frame. That's where `.Eventually()` and `.Consistently()` come in:
 
 ```go
-// Consistently checks that the condition is always true for a given time period e.g. 5s
+// Consistently checks that the condition is always true for a given time period (default: 5s)
 HTTP("primary", "/kv/stable", "GET").Consistently().Returns().Status(200).Body("hey")
 
-// Eventually checks that the condition becomes true within a given time period e.g. 5s
+// Eventually checks that the condition becomes true within a given time period (default: 5s)
 HTTP("replica", "/kv/stable", "GET").Eventually().Returns().Status(200).Body("hey")
+
+// Override default timeouts with .Within() and .For()
+HTTP("replica", "/kv/stable", "GET").Eventually().Within(10*time.Second).Returns().Status(200).Body("hey")
+HTTP("primary", "/kv/stable", "GET").Consistently().For(2*time.Second).Returns().Status(200).Body("hey")
 ```
 
 To add new timing modes, extend the `timing` enum and the `Eventually/Consistently` logic.
@@ -118,7 +120,8 @@ Expected output "Usage: myapp [options]", got ""
 **Service Management:**
 
 - `do.Start(service, port, args...)` - Start a service
-- `do.WaitForPort(service)` - Wait for service to accept connections
+- `do.Kill(service)` - Send a SIGKILL to the service
+- `do.Restart(service)` - Restart the service
 - `do.Done()` - Clean up all services
 
 **Testing Operations:**
@@ -136,7 +139,6 @@ suite.New().
     // 0
     Setup(func(do *suite.Do) {
         do.Start("primary")
-        do.WaitForPort("primary")
 
         // Clear key-value store
         do.HTTP("primary", "POST", "/clear").
@@ -184,7 +186,7 @@ Challenges are defined in `challenges/<challenge>/`.
 Each challenge stage follows this pattern:
 
 ```go
-func HTTPAPIStage() *suite.Suite {
+func HTTPAPI() *suite.Suite {
 	return suite.New().
 		// 0
 		Setup(...).
@@ -211,7 +213,7 @@ func init() {
 		Concepts: []string{"Storage Engines", "Fault Tolerance", "Replication", "Consensus"},
 	}
 
-	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPIStage)
+	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPI)
 
 	registry.RegisterChallenge("kv-store", challenge)
 }

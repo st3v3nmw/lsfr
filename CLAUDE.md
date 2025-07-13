@@ -28,5 +28,5 @@ This repository contains the implementation of the lsfr CLI tool itself:
 ### Comments
 
 - Add comments only for things that are not immediately obvious from the code or to demarcate & help break up large functions into logical sections
-- Add comments to public functions/structs and important private functions/structs
+- Add comments to public interfaces/functions/structs and important private functions/structs
 - Comments should be concise

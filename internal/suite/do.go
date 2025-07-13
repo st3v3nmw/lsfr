@@ -13,7 +13,7 @@ import (
 	"github.com/st3v3nmw/lsfr/pkg/threadsafe"
 )
 
-const scriptPath = "./run.sh"
+const runScriptPath = "./run.sh"
 
 // Do provides the test harness and acts as the test runner
 type Do struct {
@@ -23,10 +23,13 @@ type Do struct {
 	cancel context.CancelFunc
 }
 
-// Service represents a running service process
+// Service represents a running service's process
 type Service struct {
-	port int
 	cmd  *exec.Cmd
+	args []string
+
+	realPort int
+	fauxPort int
 }
 
 // NewDo creates a new Do instance with context-aware cleanup
@@ -49,41 +52,49 @@ func (do *Do) getService(service string) *Service {
 }
 
 // Start starts a service process using the run.sh script with an OS-assigned port
-func (do *Do) Start(service string, args ...string) *Do {
+func (do *Do) Start(service string, args ...string) {
+	do.startWithPort(service, 0, args...)
+}
+
+// startWithPort starts a service on the specified port
+func (do *Do) startWithPort(service string, port int, args ...string) {
 	select {
 	case <-do.ctx.Done():
-		return do
+		return
 	default:
 	}
 
 	// Get OS-assigned port
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get OS-assigned port: %v", err))
+	if port == 0 {
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			panic(fmt.Sprintf("Failed to get OS-assigned port: %v", err))
+		}
+		port = listener.Addr().(*net.TCPAddr).Port
+		listener.Close()
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-
-	portArg := fmt.Sprintf("--port=%d", port)
-	args = append([]string{portArg}, args...)
 
 	// Start the service
-	cmd := exec.CommandContext(do.ctx, scriptPath, args...)
+	portArg := fmt.Sprintf("--port=%d", port)
+	newArgs := append([]string{portArg}, args...)
+
+	cmd := exec.CommandContext(do.ctx, runScriptPath, newArgs...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		panic(err.Error())
 	}
 
-	do.services.Set(service, &Service{port: port, cmd: cmd})
-	return do
+	svc := &Service{realPort: port, cmd: cmd, args: args}
+	do.waitForPort(svc)
+
+	do.services.Set(service, svc)
 }
 
-// WaitForPort waits for a service to accept connections on its port with timeout
-func (do *Do) WaitForPort(service string) {
-	svc := do.getService(service)
-	host := fmt.Sprintf("127.0.0.1:%d", svc.port)
+// waitForPort waits for a service to accept connections on its port
+func (do *Do) waitForPort(svc *Service) {
+	host := fmt.Sprintf("127.0.0.1:%d", svc.realPort)
 
 	succeeded := Eventually(do.ctx, func() bool {
 		conn, err := net.DialTimeout("tcp", host, 100*time.Millisecond)
@@ -106,9 +117,94 @@ func (do *Do) WaitForPort(service string) {
 					"- run.sh script not executable (run: chmod +x run.sh)\n"+
 					"- Server not starting on port %d\n"+
 					"- Server crashing during startup\n\n"+
-					"Debug with: ./run.sh and check for error messages", host, svc.port,
+					"Debug with: ./run.sh and check for error messages", host, svc.realPort,
 			)
 		}
+	}
+}
+
+// Stop sends SIGTERM to a specific service, then SIGKILL after timeout
+func (do *Do) Stop(service string) {
+	svc := do.getService(service)
+	if svc.cmd == nil || svc.cmd.Process == nil {
+		return
+	}
+
+	pgid := svc.cmd.Process.Pid
+	err := syscall.Kill(-pgid, syscall.SIGTERM)
+	if err != nil {
+		fmt.Println(red("Error stopping service running @"), red(svc.realPort))
+		return
+	}
+
+	// Wait for graceful exit, force kill if timeout
+	done := make(chan bool, 1)
+	go func() {
+		svc.cmd.Wait()
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		// Process exited gracefully
+	case <-time.After(5 * time.Second):
+		do.Kill(service)
+		<-done
+	}
+}
+
+// Kill sends SIGKILL to a specific service immediately
+func (do *Do) Kill(service string) {
+	svc := do.getService(service)
+	if svc.cmd == nil || svc.cmd.Process == nil {
+		return
+	}
+
+	pgid := svc.cmd.Process.Pid
+	err := syscall.Kill(-pgid, syscall.SIGKILL)
+	if err != nil {
+		fmt.Println(red("Error killing service running @"), red(svc.realPort))
+	}
+}
+
+// Restart stops a service and starts it again
+func (do *Do) Restart(service string, sig ...syscall.Signal) {
+	svc := do.getService(service)
+	if svc.cmd == nil {
+		return
+	}
+
+	signal := syscall.SIGTERM
+	if len(sig) > 0 {
+		signal = sig[0]
+	}
+
+	switch signal {
+	case syscall.SIGTERM:
+		do.Stop(service)
+	case syscall.SIGKILL:
+		do.Kill(service)
+	default:
+		do.Stop(service)
+	}
+
+	time.Sleep(2_500 * time.Millisecond)
+
+	do.startWithPort(service, svc.realPort, svc.args...)
+}
+
+// Done cleans up all running services
+func (do *Do) Done() {
+	do.cancel()
+
+	var serviceNames []string
+	do.services.Range(func(name string, _ *Service) bool {
+		serviceNames = append(serviceNames, name)
+		return true
+	})
+
+	for _, name := range serviceNames {
+		do.Stop(name)
 	}
 }
 
@@ -128,53 +224,11 @@ func (do *Do) Concurrently(fns ...func()) {
 	wg.Wait()
 }
 
-// Done cleans up all running services
-func (do *Do) Done() {
-	do.cancel()
-
-	do.services.Range(func(_ string, svc *Service) bool {
-		do.stopService(svc)
-		return true
-	})
-}
-
-// stopService stops a single service with proper cleanup
-func (do *Do) stopService(svc *Service) {
-	if svc.cmd == nil || svc.cmd.Process == nil {
-		return
-	}
-
-	pgid := svc.cmd.Process.Pid
-
-	// Send SIGTERM to process group for graceful shutdown
-	err := syscall.Kill(-pgid, syscall.SIGTERM)
-	if err != nil {
-		fmt.Println(red("Error stopping service running @"), red(svc.port))
-		return
-	}
-
-	// Wait for graceful exit, force kill if timeout
-	done := make(chan error, 1)
-	go func() {
-		done <- svc.cmd.Wait()
-	}()
-
-	select {
-	case <-done:
-		// Process exited gracefully
-	case <-time.After(5 * time.Second):
-		fmt.Printf("Service on port %d not responding to SIGTERM, force killing...\n", svc.port)
-		syscall.Kill(-pgid, syscall.SIGKILL)
-		<-done
-	}
-}
-
 // HTTP creates a deferred HTTP request
 func (do *Do) HTTP(service, method, path string, args ...any) *HTTPPromise {
 	svc := do.getService(service)
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.port, path)
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", svc.realPort, path)
 
-	// Extract optional request body and headers
 	var body []byte
 	if len(args) >= 1 {
 		body = []byte(args[0].(string))
@@ -186,21 +240,27 @@ func (do *Do) HTTP(service, method, path string, args ...any) *HTTPPromise {
 	}
 
 	return &HTTPPromise{
+		PromiseBase: PromiseBase{
+			timing: TimingImmediate,
+			ctx:    do.ctx,
+		},
+
 		method:  method,
 		url:     url,
 		headers: headers,
 		body:    body,
-		timing:  TimingImmediate,
-		ctx:     do.ctx,
 	}
 }
 
 // Exec creates a deferred CLI command execution
 func (do *Do) Exec(args ...string) *CLIPromise {
 	return &CLIPromise{
-		command: scriptPath,
+		PromiseBase: PromiseBase{
+			timing: TimingImmediate,
+			ctx:    do.ctx,
+		},
+
+		command: runScriptPath,
 		args:    args,
-		timing:  TimingImmediate,
-		ctx:     do.ctx,
 	}
 }

@@ -106,9 +106,9 @@ func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 
 	firstStageKey := challenge.StageOrder[0]
 	if targetPath == "." {
-		fmt.Printf("Implement %s stage, then run 'lsfr test'.\n", firstStageKey)
+		fmt.Printf("Implement %s stage, then run %s.\n", firstStageKey, yellow("'lsfr test'"))
 	} else {
-		fmt.Printf("cd %s and implement %s stage, then run 'lsfr test'.\n", targetPath, firstStageKey)
+		fmt.Printf("cd %s and implement %s stage, then run %s.\n", targetPath, firstStageKey, yellow("'lsfr test'"))
 	}
 
 	return nil
@@ -220,8 +220,10 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 			return err
 		}
 
+		fmt.Println()
+
 		if !passed {
-			return fmt.Errorf("\nComplete %s before advancing.", cfg.Stages.Current)
+			return fmt.Errorf("Complete %s before advancing.", cfg.Stages.Current)
 		}
 
 		cfg.Stages.Completed = append(cfg.Stages.Completed, cfg.Stages.Current)
@@ -229,9 +231,6 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 
 	// Check if already at final stage
 	if currentIndex == challenge.Len()-1 {
-		if !isCurrentCompleted {
-			fmt.Print("\n")
-		}
 		fmt.Printf("You've completed all stages for %s! 🎉\n\n", cfg.Challenge)
 		fmt.Printf("Share your work: tag your repo with 'lsfr-go' (or your language).\n\n")
 		fmt.Println("Consider trying another challenge at \033]8;;https://lsfr.io/\033\\lsfr.io\033]8;;\033\\")
@@ -254,7 +253,7 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	fmt.Printf("Advanced to %s: %s\n\n", nextStageKey, nextStage.Name)
 	guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", cfg.Challenge, nextStageKey)
 	fmt.Printf("Read the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, nextStageKey)
-	fmt.Println("Run 'lsfr test' when ready.")
+	fmt.Printf("Run %s when ready.\n", yellow("'lsfr test'"))
 
 	return nil
 }
@@ -295,7 +294,7 @@ func ShowStatus(ctx context.Context, cmd *commands.Command) error {
 	// Next steps
 	guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", cfg.Challenge, cfg.Stages.Current)
 	fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, cfg.Stages.Current)
-	fmt.Printf("Implement %s, then run 'lsfr test'.\n", cfg.Stages.Current)
+	fmt.Printf("Implement %s, then run %s.\n", cfg.Stages.Current, yellow("'lsfr test'"))
 
 	return nil
 }

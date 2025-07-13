@@ -8,12 +8,11 @@ import (
 	"github.com/st3v3nmw/lsfr/internal/suite"
 )
 
-func HTTPAPIStage() *suite.Suite {
+func HTTPAPI() *suite.Suite {
 	return suite.New().
 		// 0
 		Setup(func(do *suite.Do) {
 			do.Start("primary")
-			do.WaitForPort("primary")
 
 			// Clear key-value store
 			do.HTTP("primary", "DELETE", "/clear").
@@ -72,11 +71,11 @@ func HTTPAPIStage() *suite.Suite {
 
 			// Long key and value
 			longKey := "long:" + strings.Repeat("k", 100)
-			longValue := strings.Repeat("v", 1000)
+			longValue := strings.Repeat("v", 10_000)
 			do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", longKey), longValue).
 				Returns().Status(http.StatusOK).
 				Assert("Your server should handle long keys and values.\n" +
-					"Ensure your implementation doesn't have arbitrary length limits.")
+					"Ensure your server doesn't have arbitrary key & value length limits.")
 
 			// Special characters in key/value
 			do.HTTP("primary", "PUT", "/kv/special:key-with_symbols.123", "value with spaces & symbols! \t").
@@ -109,7 +108,7 @@ func HTTPAPIStage() *suite.Suite {
 
 			// Verify long values
 			longKey := "long:" + strings.Repeat("k", 100)
-			longValue := strings.Repeat("v", 1000)
+			longValue := strings.Repeat("v", 10_000)
 			do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", longKey)).
 				Returns().Status(http.StatusOK).Body(longValue).
 				Assert("Your server should handle retrieval of long keys and values.\n" +

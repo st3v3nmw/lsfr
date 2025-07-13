@@ -11,7 +11,8 @@ clustering, replication, and consensus mechanisms.`,
 		Concepts: []string{"Storage Engines", "Fault Tolerance", "Replication", "Consensus"},
 	}
 
-	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPIStage)
+	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPI)
+	challenge.AddStage("persistence", "Data Survives SIGTERM", Persistence)
 
 	registry.RegisterChallenge("kv-store", challenge)
 }
