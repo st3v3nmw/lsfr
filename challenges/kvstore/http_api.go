@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/st3v3nmw/lsfr/internal/suite"
+	"github.com/st3v3nmw/lsfr/pkg/attest"
 )
 
-func HTTPAPI() *suite.Suite {
-	return suite.New().
+func HTTPAPI() *attest.Suite {
+	return attest.New().
 		// 0
-		Setup(func(do *suite.Do) {
+		Setup(func(do *attest.Do) {
 			do.Start("primary")
 
 			// Clear key-value store
@@ -22,7 +22,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 1
-		Test("PUT Basic Operations", func(do *suite.Do) {
+		Test("PUT Basic Operations", func(do *attest.Do) {
 			// Set initial key-value pairs that subsequent tests can rely on
 			capitals := map[string]string{
 				"kenya":    "Nairobi",
@@ -50,7 +50,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 2
-		Test("PUT Edge and Error Cases", func(do *suite.Do) {
+		Test("PUT Edge and Error Cases", func(do *attest.Do) {
 			// Empty value
 			do.HTTP("primary", "PUT", "/kv/empty").
 				Returns().Status(http.StatusBadRequest).Body("value cannot be empty\n").
@@ -85,7 +85,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 3
-		Test("GET Basic Operations", func(do *suite.Do) {
+		Test("GET Basic Operations", func(do *attest.Do) {
 			// Retrieve values we know exist from PUT tests
 			do.HTTP("primary", "GET", "/kv/kenya:capital").
 				Returns().Status(http.StatusOK).Body("Nairobi").
@@ -116,7 +116,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 4
-		Test("GET Edge and Error Cases", func(do *suite.Do) {
+		Test("GET Edge and Error Cases", func(do *attest.Do) {
 			// Non-existent key
 			do.HTTP("primary", "GET", "/kv/nonexistent:key").
 				Returns().Status(http.StatusNotFound).Body("key not found\n").
@@ -137,7 +137,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 5
-		Test("DELETE Basic Operations", func(do *suite.Do) {
+		Test("DELETE Basic Operations", func(do *attest.Do) {
 			// Delete an existing key
 			do.HTTP("primary", "DELETE", "/kv/tanzania:capital").
 				Returns().Status(http.StatusOK).
@@ -158,7 +158,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 6
-		Test("DELETE Edge and Error Cases", func(do *suite.Do) {
+		Test("DELETE Edge and Error Cases", func(do *attest.Do) {
 			// Delete non-existent key
 			do.HTTP("primary", "DELETE", "/kv/nonexistent:key").
 				Returns().Status(http.StatusOK).
@@ -187,7 +187,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 7
-		Test("Concurrent Operations", func(do *suite.Do) {
+		Test("Concurrent Operations", func(do *attest.Do) {
 			// Test concurrent writes
 			putKV := func(key, value string) func() {
 				return func() {
@@ -219,7 +219,7 @@ func HTTPAPI() *suite.Suite {
 		}).
 
 		// 8
-		Test("Check Allowed HTTP Methods", func(do *suite.Do) {
+		Test("Check Allowed HTTP Methods", func(do *attest.Do) {
 			// POST & PATCH /kv/{key} not allowed
 			methods := []string{"POST", "PATCH"}
 			for _, method := range methods {

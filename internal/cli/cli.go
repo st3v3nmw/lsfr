@@ -14,12 +14,10 @@ import (
 )
 
 var (
-	green     = color.New(color.FgGreen).SprintFunc()
-	red       = color.New(color.FgRed).SprintFunc()
-	yellow    = color.New(color.FgYellow).SprintFunc()
-	bold      = color.New(color.Bold).SprintFunc()
-	checkMark = green("✓")
-	crossMark = red("✗")
+	green  = color.New(color.FgGreen).SprintFunc()
+	red    = color.New(color.FgRed).SprintFunc()
+	yellow = color.New(color.FgYellow).SprintFunc()
+	bold   = color.New(color.Bold).SprintFunc()
 )
 
 // createChallengeFiles creates the initial project files for a new challenge
@@ -156,7 +154,8 @@ func runStageTests(ctx context.Context, challengeKey, stageKey string) (bool, er
 	}
 
 	suite := stage.Fn()
-	passed := suite.Run(ctx, fmt.Sprintf("%s: %s", stageKey, stage.Name))
+	fmt.Printf("Running %s: %s\n\n", stageKey, stage.Name)
+	passed := suite.Run(ctx)
 	return passed, nil
 }
 

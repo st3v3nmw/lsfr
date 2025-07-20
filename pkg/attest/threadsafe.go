@@ -1,22 +1,22 @@
-package threadsafe
+package attest
 
 import "sync"
 
-// Map is a thread-safe map implementation.
-type Map[K comparable, V any] struct {
+// syncMap is a thread-safe map implementation.
+type syncMap[K comparable, V any] struct {
 	m  map[K]V
 	mu sync.RWMutex
 }
 
-// NewMap creates a new thread-safe map.
-func NewMap[K comparable, V any]() *Map[K, V] {
-	return &Map[K, V]{
+// newMap creates a new thread-safe map.
+func newMap[K comparable, V any]() *syncMap[K, V] {
+	return &syncMap[K, V]{
 		m: make(map[K]V),
 	}
 }
 
 // Set adds or updates a key-value pair in the map.
-func (m *Map[K, V]) Set(key K, value V) {
+func (m *syncMap[K, V]) Set(key K, value V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -24,7 +24,7 @@ func (m *Map[K, V]) Set(key K, value V) {
 }
 
 // Get retrieves a value by key from the map.
-func (m *Map[K, V]) Get(key K) (V, bool) {
+func (m *syncMap[K, V]) Get(key K) (V, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -34,7 +34,7 @@ func (m *Map[K, V]) Get(key K) (V, bool) {
 
 // Range iterates over all key-value pairs in the map.
 // The iteration stops if the provided function returns false.
-func (m *Map[K, V]) Range(fn func(K, V) bool) {
+func (m *syncMap[K, V]) Range(fn func(K, V) bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/st3v3nmw/lsfr/internal/suite"
+	"github.com/st3v3nmw/lsfr/pkg/attest"
 )
 
 func init() {
@@ -30,7 +30,7 @@ type Stage struct {
 }
 
 // StageFunc is a function that returns a test suite for a stage
-type StageFunc func() *suite.Suite
+type StageFunc func() *attest.Suite
 
 // AddStage adds a new stage to the challenge
 func (c *Challenge) AddStage(key, name string, fn StageFunc) {

@@ -1,4 +1,4 @@
-package suite
+package attest
 
 import (
 	"bytes"
@@ -12,10 +12,8 @@ import (
 	"time"
 )
 
-const pollInterval = 100 * time.Millisecond
-
-// Eventually checks that the condition becomes true within the given period
-func Eventually(ctx context.Context, executor func() bool, timeout time.Duration) bool {
+// eventually checks that the condition becomes true within the given period
+func eventually(ctx context.Context, condition func() bool, timeout, pollInterval time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -23,7 +21,7 @@ func Eventually(ctx context.Context, executor func() bool, timeout time.Duration
 		case <-ctx.Done():
 			return false
 		case <-time.After(pollInterval):
-			if executor() {
+			if condition() {
 				return true
 			}
 		}
@@ -32,8 +30,8 @@ func Eventually(ctx context.Context, executor func() bool, timeout time.Duration
 	return false
 }
 
-// Consistently checks that the condition is always true for the given period
-func Consistently(ctx context.Context, executor func() bool, timeout time.Duration) bool {
+// consistently checks that the condition is always true for the given period
+func consistently(ctx context.Context, condition func() bool, timeout, pollInterval time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -41,7 +39,7 @@ func Consistently(ctx context.Context, executor func() bool, timeout time.Durati
 		case <-ctx.Done():
 			return false
 		case <-time.After(pollInterval):
-			if !executor() {
+			if !condition() {
 				return false
 			}
 		}
@@ -55,8 +53,8 @@ func Consistently(ctx context.Context, executor func() bool, timeout time.Durati
 type Assert interface {
 	// Assert executes the operation and validates the result
 	Assert(help string)
-	// immediately executes the operation once and returns whether it meets expectations
-	immediately() bool
+	// execute executes the operation once and returns whether it meets expectations
+	execute() bool
 	// check validates the result and panics with formatted error message on failure
 	check()
 	// formatHelp formats help text with proper indentation for error messages
@@ -70,14 +68,12 @@ var _ Assert = (*CLIAssert)(nil)
 // AssertBase provides common assertion functionality
 type AssertBase struct {
 	help string
+
+	config *Config
 }
 
 func (a *AssertBase) formatHelp() string {
-	if a.help != "" {
-		return "\n\n  " + strings.ReplaceAll(a.help, "\n", "\n  ")
-	}
-
-	return ""
+	return "\n\n  " + strings.ReplaceAll(a.help, "\n", "\n  ")
 }
 
 // HTTPAssert provides assertions for HTTP response validation
@@ -110,18 +106,18 @@ func (a *HTTPAssert) Assert(help string) {
 	p := a.promise
 	switch p.timing {
 	case TimingEventually:
-		Eventually(p.ctx, a.immediately, p.timeout)
+		eventually(p.ctx, a.execute, p.timeout, a.config.RetryPollInterval)
 	case TimingConsistently:
-		Consistently(p.ctx, a.immediately, p.timeout)
+		consistently(p.ctx, a.execute, p.timeout, a.config.RetryPollInterval)
 	default:
-		a.immediately()
+		a.execute()
 	}
 
 	a.check()
 }
 
-func (a *HTTPAssert) immediately() bool {
-	client := &http.Client{Timeout: 30 * time.Second}
+func (a *HTTPAssert) execute() bool {
+	client := &http.Client{Timeout: a.config.ExecuteTimeout}
 	p := a.promise
 
 	req, err := http.NewRequestWithContext(p.ctx, p.method, p.url, bytes.NewReader(p.body))
@@ -147,7 +143,8 @@ func (a *HTTPAssert) immediately() bool {
 	a.responseBody = string(responseBody)
 	a.responseStatus = resp.StatusCode
 
-	return a.responseStatus == a.expectedStatus && a.responseBody == a.expectedBody
+	return a.responseStatus == a.expectedStatus &&
+		a.responseBody == a.expectedBody
 }
 
 func (a *HTTPAssert) check() {
@@ -201,24 +198,34 @@ func (a *CLIAssert) Assert(help string) {
 	p := a.promise
 	switch p.timing {
 	case TimingEventually:
-		Eventually(p.ctx, a.immediately, p.timeout)
+		eventually(p.ctx, a.execute, p.timeout, a.config.RetryPollInterval)
 	case TimingConsistently:
-		Consistently(p.ctx, a.immediately, p.timeout)
+		consistently(p.ctx, a.execute, p.timeout, a.config.RetryPollInterval)
 	default:
-		a.immediately()
+		a.execute()
 	}
 
 	a.check()
 }
 
-func (a *CLIAssert) immediately() bool {
+func (a *CLIAssert) execute() bool {
 	p := a.promise
-	cmd := exec.CommandContext(p.ctx, p.command, p.args...)
+
+	ctx, cancel := context.WithTimeout(p.ctx, a.config.ExecuteTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, p.command, p.args...)
 
 	stdout, err := cmd.Output()
 	if err != nil {
 		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			a.output = fmt.Sprintf("%s timed out after %s", p.command, a.config.ExecuteTimeout)
+			a.exitCode = -1
+		} else if errors.Is(ctx.Err(), context.Canceled) {
+			a.output = fmt.Sprintf("%s was cancelled", p.command)
+			a.exitCode = -1
+		} else if errors.As(err, &exitError) {
 			a.output = string(exitError.Stderr)
 			a.exitCode = exitError.ExitCode()
 		} else {
@@ -226,25 +233,27 @@ func (a *CLIAssert) immediately() bool {
 		}
 	} else {
 		a.output = string(stdout)
+		a.exitCode = 0
 	}
 
-	return a.exitCode == a.expectedExitCode && a.output == a.expectedOutput
+	return a.exitCode == a.expectedExitCode &&
+		a.output == a.expectedOutput
 }
 
 func (a *CLIAssert) check() {
 	p := a.promise
 
 	if a.exitCode != a.expectedExitCode {
-		msg := fmt.Sprintf("%s\n  Expected exit code %d, got %d%s",
-			p.command,
+		msg := fmt.Sprintf("%s %s\n  Expected exit code %d, got %d%s",
+			p.command, strings.Join(p.args, " "),
 			a.expectedExitCode, a.exitCode,
 			a.formatHelp())
 		panic(msg)
 	}
 
 	if a.output != a.expectedOutput {
-		msg := fmt.Sprintf("%s\n  Expected output: %q\n  Actual output: %q%s",
-			p.command,
+		msg := fmt.Sprintf("%s %s\n  Expected output: %q\n  Actual output: %q%s",
+			p.command, strings.Join(p.args, " "),
 			a.expectedOutput, a.output,
 			a.formatHelp())
 		panic(msg)

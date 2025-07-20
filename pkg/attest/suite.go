@@ -1,4 +1,4 @@
-package suite
+package attest
 
 import (
 	"context"
@@ -20,6 +20,7 @@ var (
 type Suite struct {
 	setupFn func(*Do)
 	tests   []TestFunc
+	config  *Config
 }
 
 // TestFunc represents a single test case with name and function
@@ -33,6 +34,42 @@ func New() *Suite {
 	return &Suite{tests: make([]TestFunc, 0)}
 }
 
+// WithConfig sets the configuration for the test suite
+func (s *Suite) WithConfig(config *Config) *Suite {
+	merged := DefaultConfig()
+
+	if config.Command != "" {
+		merged.Command = config.Command
+	}
+
+	if config.ProcessStartTimeout != 0 {
+		merged.ProcessStartTimeout = config.ProcessStartTimeout
+	}
+
+	if config.ProcessShutdownTimeout != 0 {
+		merged.ProcessShutdownTimeout = config.ProcessShutdownTimeout
+	}
+
+	if config.ProcessRestartDelay != 0 {
+		merged.ProcessRestartDelay = config.ProcessRestartDelay
+	}
+
+	if config.DefaultRetryTimeout != 0 {
+		merged.DefaultRetryTimeout = config.DefaultRetryTimeout
+	}
+
+	if config.RetryPollInterval != 0 {
+		merged.RetryPollInterval = config.RetryPollInterval
+	}
+
+	if config.ExecuteTimeout != 0 {
+		merged.ExecuteTimeout = config.ExecuteTimeout
+	}
+
+	s.config = merged
+	return s
+}
+
 // Setup adds a setup function that runs before all tests
 func (s *Suite) Setup(fn func(*Do)) *Suite {
 	s.setupFn = fn
@@ -42,15 +79,17 @@ func (s *Suite) Setup(fn func(*Do)) *Suite {
 // Test adds a test case to the suite
 func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 	s.tests = append(s.tests, TestFunc{Name: name, Fn: fn})
-
 	return s
 }
 
 // Run executes the test suite and returns results
-func (s *Suite) Run(ctx context.Context, name string) bool {
-	fmt.Printf("Running %s\n\n", name)
+func (s *Suite) Run(ctx context.Context) bool {
+	config := s.config
+	if config == nil {
+		config = DefaultConfig()
+	}
 
-	do := NewDo(ctx)
+	do := newDo(ctx, config)
 	defer do.Done()
 
 	// Run setup function if defined

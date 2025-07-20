@@ -1,4 +1,4 @@
-package suite
+package attest
 
 import (
 	"context"
@@ -13,9 +13,6 @@ const (
 	TimingEventually
 	TimingConsistently
 )
-
-// Default timeout for Eventually and Consistently operations
-const defaultTimeout = 5 * time.Second
 
 // Promise represents a deferred operation
 type Promise[P any, A any] interface {
@@ -39,12 +36,15 @@ var _ Promise[*CLIPromise, *CLIAssert] = (*CLIPromise)(nil)
 type PromiseBase struct {
 	timing  timing
 	timeout time.Duration
-	ctx     context.Context
+
+	ctx context.Context
+
+	config *Config
 }
 
 func (b *PromiseBase) setEventually() {
 	b.timing = TimingEventually
-	b.timeout = defaultTimeout
+	b.timeout = b.config.DefaultRetryTimeout
 }
 
 func (b *PromiseBase) setWithin(timeout time.Duration) {
@@ -57,7 +57,7 @@ func (b *PromiseBase) setWithin(timeout time.Duration) {
 
 func (b *PromiseBase) setConsistently() {
 	b.timing = TimingConsistently
-	b.timeout = defaultTimeout
+	b.timeout = b.config.DefaultRetryTimeout
 }
 
 func (b *PromiseBase) setFor(timeout time.Duration) {
@@ -99,7 +99,10 @@ func (p *HTTPPromise) For(timeout time.Duration) *HTTPPromise {
 }
 
 func (p *HTTPPromise) Returns() *HTTPAssert {
-	return &HTTPAssert{promise: p}
+	return &HTTPAssert{
+		AssertBase: AssertBase{config: p.config},
+		promise:    p,
+	}
 }
 
 // CLIPromise represents a deferred CLI command execution
@@ -131,5 +134,8 @@ func (p *CLIPromise) For(timeout time.Duration) *CLIPromise {
 }
 
 func (p *CLIPromise) Returns() *CLIAssert {
-	return &CLIAssert{promise: p}
+	return &CLIAssert{
+		AssertBase: AssertBase{config: p.config},
+		promise:    p,
+	}
 }

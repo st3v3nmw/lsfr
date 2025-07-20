@@ -75,7 +75,7 @@ To add new timing modes, extend the `timing` enum and the `Eventually/Consistent
 
 ### Error Messages
 
-Checks should have detailed error messages that help learners understand failures:
+Checks should have detailed error messages that help developers understand failures:
 
 #### HTTP Request Failures
 
