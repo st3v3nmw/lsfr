@@ -187,7 +187,7 @@ func TestStage(ctx context.Context, cmd *commands.Command) error {
 		fmt.Printf("\nRun %s to advance to the next stage.\n", yellow("'lsfr next'"))
 	} else {
 		guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", challengeKey, stageKey)
-		fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n", guideURL, challengeKey, stageKey)
+		err = fmt.Errorf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n", guideURL, challengeKey, stageKey)
 	}
 
 	return err
