@@ -198,19 +198,15 @@ func HTTPAPI() *attest.Suite {
 				}
 			}
 
-			do.Concurrently(
-				putKV("key1", "value1"),
-				putKV("key2", "value2"),
-				putKV("key3", "value3"),
-				putKV("key4", "value4"),
-				putKV("key5", "value5"),
-				putKV("key6", "value6"),
-				putKV("key7", "value7"),
-				putKV("key8", "value8"),
-			)
+			fns := []func(){}
+			for i := 1; i <= 1_000; i++ {
+				fns = append(fns, putKV(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i)))
+			}
+
+			do.Concurrently(fns...)
 
 			// Verify all concurrent writes succeeded
-			for i := 1; i <= 8; i++ {
+			for i := 1; i <= 1_000; i++ {
 				do.HTTP("primary", "GET", fmt.Sprintf("/kv/concurrent:key%d", i)).
 					Returns().Status(http.StatusOK).Body(fmt.Sprintf("value%d", i)).
 					Assert("Your server should store all concurrent writes correctly.\n" +
