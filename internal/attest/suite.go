@@ -97,7 +97,8 @@ func (s *Suite) Run(ctx context.Context) bool {
 	if s.setupFn != nil {
 		func() {
 			defer func() {
-				if err := recover(); err != nil {
+				err := recover()
+				if err != nil {
 					failed = true
 
 					fmt.Printf("%s %s\n", crossMark, "SETUP")
@@ -123,7 +124,8 @@ func (s *Suite) Run(ctx context.Context) bool {
 
 		func() {
 			defer func() {
-				if err := recover(); err != nil {
+				err := recover()
+				if err != nil {
 					failed = true
 
 					fmt.Printf("%s %s\n", crossMark, test.Name)

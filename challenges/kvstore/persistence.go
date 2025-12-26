@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/st3v3nmw/lsfr/pkg/attest"
+	"github.com/st3v3nmw/lsfr/internal/attest"
 )
 
 func Persistence() *attest.Suite {
@@ -97,12 +97,10 @@ func Persistence() *attest.Suite {
 				"persistent:key2": "value with spaces",
 				"persistent:key3": "🌍 unicode value",
 				"persistent:key4": strings.Repeat("long_value_", 50),
-				"sigterm:key1":    "sigterm_value1",
-				"sigterm:key2":    "data before signal",
-				"sigterm:key3":    "critical business data",
 				"cycle:restart_1": "restart_data_1",
 				"cycle:restart_2": "restart_data_2",
 				"cycle:restart_3": "restart_data_3",
+				"cycle:restart_4": "restart_data_4",
 			}
 
 			for key, expectedValue := range allHistoricalData {
@@ -120,7 +118,7 @@ func Persistence() *attest.Suite {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/load:"+key, value).
 						Returns().Status(http.StatusOK).
-						Assert("Your server should handle concurrent PUT requests under load (up to 10,000 requests).\n" +
+						Assert("Your server should handle concurrent PUT requests under load (10K requests).\n" +
 							"Ensure persistence works correctly during high-traffic scenarios.")
 				}
 			}

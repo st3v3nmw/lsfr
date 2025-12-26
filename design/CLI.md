@@ -46,9 +46,10 @@ stages:
 $ cat run.sh
 #!/bin/bash -e
 
-# This script builds and runs your implementation
-# lsfr will execute this script to start your program
-# "$@" passes any command-line arguments from lsfr to your program
+# This script builds and runs your implementation.
+# lsfr will execute this script to start your program.
+# "$@" passes command-line arguments from lsfr to your program:
+#   --working-dir=<path>: Directory where your program should write files
 
 echo "Replace this line with the command that runs your implementation."
 # Examples:
@@ -77,6 +78,10 @@ You'll start with a simple HTTP API and progressively add persistence, clusterin
 3. Run _lsfr next_ when ready to advance.
 
 Good luck! 🚀
+
+# .gitignore
+$ cat .gitignore
+.lsfr/
 ```
 
 ## Testing Stages
@@ -86,7 +91,7 @@ Good luck! 🚀
 ```bash
 # Test current stage (reads from lsfr.yaml)
 $ lsfr test
-Running http-api: Basic Operations
+Testing http-api: Basic Operations
 
 ✓ PUT operations
 ✓ GET operations
@@ -101,7 +106,7 @@ Run 'lsfr next' to advance to persistence.
 
 # Test specific stage
 $ lsfr test persistence
-Running persistence: Data Persistence
+Testing persistence: Data Persistence
 
 ✓ Data survives restart
 ✓ Handles crash recovery
@@ -113,7 +118,7 @@ Run 'lsfr next' to advance to clustering.
 
 # When tests fail, show detailed info automatically
 $ lsfr test http-api
-Running http-api: Basic Operations
+Testing http-api: Basic Operations
 
 ✓ PUT operations
 ✓ GET operations
@@ -164,7 +169,7 @@ stages:
 
 # Try to advance without passing current stage
 $ lsfr next
-Running http-api: Basic Operations
+Testing http-api: Basic Operations
 
 ✓ PUT operations
 ✗ GET operations

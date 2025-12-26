@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -13,8 +15,9 @@ import (
 
 // Do provides the test harness and acts as the test runner
 type Do struct {
-	processes *syncMap[string, *Process]
-	config    *Config
+	processes  *syncMap[string, *Process]
+	config     *Config
+	workingDir string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -23,18 +26,28 @@ type Do struct {
 // newDo creates a new Do instance with custom configuration
 func newDo(ctx context.Context, config *Config) *Do {
 	doCtx, cancel := context.WithCancel(ctx)
+
+	timestamp := time.Now().Format("20060102-150405")
+	workingDir := filepath.Join(".lsfr", fmt.Sprintf("run-%s", timestamp))
+	err := os.MkdirAll(workingDir, 0755)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create working directory: %v", err))
+	}
+
 	return &Do{
-		processes: newMap[string, *Process](),
-		config:    config,
-		ctx:       doCtx,
-		cancel:    cancel,
+		processes:  newMap[string, *Process](),
+		config:     config,
+		workingDir: workingDir,
+		ctx:        doCtx,
+		cancel:     cancel,
 	}
 }
 
 // Process represents a running process
 type Process struct {
-	cmd  *exec.Cmd
-	args []string
+	cmd     *exec.Cmd
+	args    []string
+	logFile *os.File
 
 	realPort int
 	fauxPort int
@@ -74,17 +87,28 @@ func (do *Do) startWithPort(name string, port int, args ...string) {
 
 	// Start the process
 	portArg := fmt.Sprintf("--port=%d", port)
-	newArgs := append([]string{portArg}, args...)
+	workingDirArg := fmt.Sprintf("--working-dir=%s", do.workingDir)
+	newArgs := append([]string{portArg, workingDirArg}, args...)
 
 	cmd := exec.CommandContext(do.ctx, do.config.Command, newArgs...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	err := cmd.Start()
+	// Redirect stdout/stderr to log file
+	logPath := filepath.Join(do.workingDir, fmt.Sprintf("%s.log", name))
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		panic(fmt.Sprintf("failed to create log file: %v", err))
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	err = cmd.Start()
+	if err != nil {
+		logFile.Close()
 		panic(err.Error())
 	}
 
-	proc := &Process{realPort: port, cmd: cmd, args: args}
+	proc := &Process{realPort: port, cmd: cmd, args: args, logFile: logFile}
 	do.waitForPort(proc)
 
 	do.processes.Set(name, proc)
@@ -149,6 +173,12 @@ func (do *Do) Stop(name string) {
 		do.Kill(name)
 		<-done
 	}
+
+	// Close log file after process exits
+	if proc.logFile != nil {
+		proc.logFile.Close()
+		proc.logFile = nil
+	}
 }
 
 // Kill sends SIGKILL to kill the process immediately
@@ -162,6 +192,12 @@ func (do *Do) Kill(name string) {
 	err := syscall.Kill(-pgid, syscall.SIGKILL)
 	if err != nil {
 		fmt.Println(red("Error killing process running @"), red(proc.realPort))
+	}
+
+	// Close log file if not already closed (e.g., when called directly, not via Stop)
+	if proc.logFile != nil {
+		proc.logFile.Close()
+		proc.logFile = nil
 	}
 }
 
@@ -209,17 +245,33 @@ func (do *Do) Done() {
 // Concurrently runs multiple functions in parallel and waits for completion
 func (do *Do) Concurrently(fns ...func()) {
 	var wg sync.WaitGroup
+	var panicErr any
+	var panicMu sync.Mutex
 
 	for _, fn := range fns {
 		wg.Add(1)
 		go func(f func()) {
 			defer wg.Done()
+			defer func() {
+				err := recover()
+				if err != nil {
+					panicMu.Lock()
+					if panicErr == nil {
+						panicErr = err
+					}
+					panicMu.Unlock()
+				}
+			}()
 
 			f()
 		}(fn)
 	}
 
 	wg.Wait()
+
+	if panicErr != nil {
+		panic(panicErr)
+	}
 }
 
 // HTTP creates a deferred HTTP request

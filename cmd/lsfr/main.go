@@ -65,7 +65,8 @@ func main() {
 	}()
 
 	// Run
-	if err := cmd.Run(ctx, os.Args); err != nil {
+	err := cmd.Run(ctx, os.Args)
+	if err != nil {
 		if ctx.Err() == context.Canceled {
 			os.Exit(0)
 		}

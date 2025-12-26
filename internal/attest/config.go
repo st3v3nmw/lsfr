@@ -27,11 +27,11 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Command:                "./run.sh",
-		ProcessStartTimeout:    5 * time.Second,
-		ProcessShutdownTimeout: 5 * time.Second,
+		ProcessStartTimeout:    10 * time.Second,
+		ProcessShutdownTimeout: 10 * time.Second,
 		ProcessRestartDelay:    time.Second,
 		DefaultRetryTimeout:    5 * time.Second,
 		RetryPollInterval:      100 * time.Millisecond,
-		ExecuteTimeout:         time.Second,
+		ExecuteTimeout:         5 * time.Second,
 	}
 }

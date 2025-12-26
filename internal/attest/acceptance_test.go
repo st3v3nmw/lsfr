@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/st3v3nmw/lsfr/pkg/attest"
+	"github.com/st3v3nmw/lsfr/internal/attest"
 )
 
 func TestHTTP(t *testing.T) {

@@ -28,7 +28,8 @@ func createChallengeFiles(challenge *registry.Challenge, targetPath string) erro
 
 # This script builds and runs your implementation.
 # lsfr will execute this script to start your program.
-# "$@" passes any command-line arguments from lsfr to your program.
+# "$@" passes command-line arguments from lsfr to your program:
+#   --working-dir=<path>: Directory where your program should write files
 
 echo "Replace this line with the command that runs your implementation."
 # Examples:
@@ -37,13 +38,15 @@ echo "Replace this line with the command that runs your implementation."
 #   exec ./my-program "$@"
 `
 
-	if err := os.WriteFile(scriptPath, []byte(scriptTemplate), 0755); err != nil {
+	err := os.WriteFile(scriptPath, []byte(scriptTemplate), 0755)
+	if err != nil {
 		return fmt.Errorf("Failed to create run.sh: %w", err)
 	}
 
 	// README.md
 	readmePath := filepath.Join(targetPath, "README.md")
-	if err := os.WriteFile(readmePath, []byte(challenge.README()), 0644); err != nil {
+	err = os.WriteFile(readmePath, []byte(challenge.README()), 0644)
+	if err != nil {
 		return fmt.Errorf("Failed to create README.md: %w", err)
 	}
 
@@ -56,8 +59,17 @@ echo "Replace this line with the command that runs your implementation."
 		},
 	}
 	configPath := filepath.Join(targetPath, "lsfr.yaml")
-	if err := config.SaveTo(cfg, configPath); err != nil {
+	err = config.SaveTo(cfg, configPath)
+	if err != nil {
 		return fmt.Errorf("Failed to create lsfr.yaml: %w", err)
+	}
+
+	// .gitignore
+	gitignorePath := filepath.Join(targetPath, ".gitignore")
+	gitignoreContent := `.lsfr/`
+	err = os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to create .gitignore: %w", err)
 	}
 
 	return nil
@@ -81,14 +93,16 @@ func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 	var targetPath string
 	if len(args) > 1 {
 		targetPath = args[1]
-		if err := os.MkdirAll(targetPath, 0755); err != nil {
+		err := os.MkdirAll(targetPath, 0755)
+		if err != nil {
 			return fmt.Errorf("Failed to create directory %s: %w", targetPath, err)
 		}
 	} else {
 		targetPath = "."
 	}
 
-	if err := createChallengeFiles(challenge, targetPath); err != nil {
+	err = createChallengeFiles(challenge, targetPath)
+	if err != nil {
 		return err
 	}
 
@@ -154,7 +168,7 @@ func runStageTests(ctx context.Context, challengeKey, stageKey string) (bool, er
 	}
 
 	suite := stage.Fn()
-	fmt.Printf("Running %s: %s\n\n", stageKey, stage.Name)
+	fmt.Printf("Testing %s: %s\n\n", stageKey, stage.Name)
 	passed := suite.Run(ctx)
 	return passed, nil
 }
@@ -240,7 +254,8 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	// Advance to next stage
 	nextStageKey := challenge.StageOrder[currentIndex+1]
 	cfg.Stages.Current = nextStageKey
-	if err := config.Save(cfg); err != nil {
+	err = config.Save(cfg)
+	if err != nil {
 		return err
 	}
 
