@@ -130,7 +130,7 @@ func CrashRecovery() *Suite {
 		}).
 
 		// 4
-		Test("Test Persistence When Under Load", func(do *Do) {
+		Test("Test Recovery When Under Concurrent Load", func(do *Do) {
 			// Generate concurrent load
 			putFn := func(key, value string) func() {
 				return func() {

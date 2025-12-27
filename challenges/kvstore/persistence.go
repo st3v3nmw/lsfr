@@ -95,7 +95,7 @@ func Persistence() *Suite {
 		}).
 
 		// 3
-		Test("Test Persistence When Under Load", func(do *Do) {
+		Test("Test Persistence When Under Concurrent Load", func(do *Do) {
 			// Generate concurrent load
 			putFn := func(key, value string) func() {
 				return func() {
