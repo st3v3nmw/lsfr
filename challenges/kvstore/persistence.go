@@ -15,7 +15,7 @@ func Persistence() *Suite {
 		}).
 
 		// 1
-		Test("Store Initial Testing Data", func(do *Do) {
+		Test("Verify Data Survives Graceful Restart", func(do *Do) {
 			// Store initial data
 			testData := map[string]string{
 				"persistent:key1": "value1",
@@ -38,20 +38,10 @@ func Persistence() *Suite {
 					Assert("Your server should return stored values before persistence test.\n" +
 						"Ensure basic storage functionality works correctly.")
 			}
-		}).
 
-		// 2
-		Test("Verify Data Survives Restart", func(do *Do) {
 			do.Restart("primary")
 
 			// Verify data survived the restart
-			testData := map[string]string{
-				"persistent:key1": "value1",
-				"persistent:key2": "value with spaces",
-				"persistent:key3": "🌍 unicode value",
-				"persistent:key4": strings.Repeat("long_value_", 50),
-			}
-
 			for key, expectedValue := range testData {
 				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", key)).
 					Returns().Status(Is(200)).Body(Is(expectedValue)).
@@ -61,7 +51,7 @@ func Persistence() *Suite {
 			}
 		}).
 
-		// 3
+		// 2
 		Test("Check Data Integrity After Multiple Restarts", func(do *Do) {
 			// Perform multiple cycles of data operations and restarts
 			for cycle := 1; cycle <= 4; cycle++ {
@@ -104,15 +94,15 @@ func Persistence() *Suite {
 			}
 		}).
 
-		// 4
+		// 3
 		Test("Test Persistence When Under Load", func(do *Do) {
-			// Store data concurrently to test persistence under load
+			// Generate concurrent load
 			putKV := func(key, value string) func() {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/load:"+key, value).
 						Returns().Status(Is(200)).
-						Assert("Your server should handle concurrent PUT requests under load (10K requests).\n" +
-							"Ensure persistence works correctly during high-traffic scenarios.")
+						Assert("Your server should handle concurrent PUT requests under load.\n" +
+							"Ensure persistence works during high-traffic scenarios.")
 				}
 			}
 
@@ -121,7 +111,6 @@ func Persistence() *Suite {
 				fns = append(fns, putKV(fmt.Sprintf("concurrent%d", i), fmt.Sprintf("value%d", i)))
 			}
 
-			// Generate concurrent load
 			do.Concurrently(fns...)
 
 			// Immediately restart to test persistence under concurrent load
@@ -131,8 +120,8 @@ func Persistence() *Suite {
 			for i := 1; i <= 10_000; i++ {
 				do.HTTP("primary", "GET", fmt.Sprintf("/kv/load:concurrent%d", i)).
 					Returns().Status(Is(200)).Body(Is(fmt.Sprintf("value%d", i))).
-					Assert("Your server should persist all concurrent writes correctly.\n" +
-						"Ensure thread-safe persistence and no data loss under load (up to 10,000 concurrent requests).")
+					Assert("Your server should persist all concurrent writes.\n" +
+						"Ensure thread-safe persistence and no data loss under load.")
 			}
 		})
 }

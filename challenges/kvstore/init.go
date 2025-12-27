@@ -13,6 +13,7 @@ clustering, replication, and consensus mechanisms.`,
 
 	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPI)
 	challenge.AddStage("persistence", "Data Survives SIGTERM", Persistence)
+	challenge.AddStage("crash-recovery", "Crash Recovery with Write-Ahead Logging", CrashRecovery)
 
 	registry.RegisterChallenge("kv-store", challenge)
 }

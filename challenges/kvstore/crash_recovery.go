@@ -1,0 +1,163 @@
+package kvstore
+
+import (
+	"fmt"
+	"strings"
+	"syscall"
+
+	. "github.com/st3v3nmw/lsfr/internal/attest"
+)
+
+func CrashRecovery() *Suite {
+	return New().
+		// 0
+		Setup(func(do *Do) {
+			do.Start("primary")
+		}).
+
+		// 1
+		Test("Basic WAL Durability", func(do *Do) {
+			// Test various operations that should all be logged
+			do.HTTP("primary", "PUT", "/kv/wal:basic", "initial").
+				Returns().Status(Is(200)).
+				Assert("Your server should accept PUT requests.\n" +
+					"Ensure your HTTP handler processes PUT requests correctly.")
+
+			do.HTTP("primary", "PUT", "/kv/wal:updated", "v1").
+				Returns().Status(Is(200)).
+				Assert("Your server should accept PUT requests.\n" +
+					"Ensure your HTTP handler processes PUT requests correctly.")
+
+			do.HTTP("primary", "PUT", "/kv/wal:updated", "v2").
+				Returns().Status(Is(200)).
+				Assert("Your server should allow overwriting existing keys.\n" +
+					"Ensure PUT requests update the value of existing keys.")
+
+			do.HTTP("primary", "PUT", "/kv/wal:deleted", "temporary").
+				Returns().Status(Is(200)).
+				Assert("Your server should accept PUT requests.\n" +
+					"Ensure your HTTP handler processes PUT requests correctly.")
+
+			do.HTTP("primary", "DELETE", "/kv/wal:deleted").
+				Returns().Status(Is(200)).
+				Assert("Your server should accept DELETE requests.\n" +
+					"Ensure your HTTP handler processes DELETE requests correctly.")
+
+			// Crash without warning
+			do.Restart("primary", syscall.SIGKILL)
+
+			// Verify correct final state after recovery
+			do.HTTP("primary", "GET", "/kv/wal:basic").
+				Returns().Status(Is(200)).Body(Is("initial")).
+				Assert("Your server acknowledged the PUT but lost the data after crashing.\n" +
+					"Implement a Write-Ahead Log (WAL) that records operations before applying them to memory.\n" +
+					"Ensure writes are durably stored (fsync/flush) before or when acknowledging to the client.")
+
+			do.HTTP("primary", "GET", "/kv/wal:updated").
+				Returns().Status(Is(200)).Body(Is("v2")).
+				Assert("Your server should preserve updated values after crash.\n" +
+					"Ensure your WAL records all PUT operations, including updates to existing keys.")
+
+			do.HTTP("primary", "GET", "/kv/wal:deleted").
+				Returns().Status(Is(404)).
+				Assert("Your server should preserve deletion state after crash.\n" +
+					"Ensure your WAL records DELETE operations and replays them correctly during recovery.")
+		}).
+
+		// 2
+		Test("Multiple Crash Recovery Cycles", func(do *Do) {
+			// Simulate multiple crash/restart cycles
+			for cycle := 1; cycle <= 4; cycle++ {
+				// Add cycle-specific data
+				cycleKey := fmt.Sprintf("cycle:crash_%d", cycle)
+				cycleValue := fmt.Sprintf("crash_data_%d", cycle)
+
+				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", cycleKey), cycleValue).
+					Returns().Status(Is(200)).
+					Assert("Your server should accept PUT requests.\n" +
+						"Ensure your HTTP handler processes PUT requests correctly.")
+
+				// Crash without warning
+				do.Restart("primary", syscall.SIGKILL)
+
+				// Verify cycle data survived
+				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", cycleKey)).
+					Returns().Status(Is(200)).Body(Is(cycleValue)).
+					Assert("Your server should preserve data across crash/restart cycles.\n" +
+						"Ensure your WAL is append-only and recovery replays all operations correctly.")
+			}
+
+			// Verify all historical data from all cycles still exists
+			allHistoricalData := map[string]string{
+				"wal:basic":     "initial",
+				"wal:updated":   "v2",
+				"cycle:crash_1": "crash_data_1",
+				"cycle:crash_2": "crash_data_2",
+				"cycle:crash_3": "crash_data_3",
+				"cycle:crash_4": "crash_data_4",
+			}
+
+			for key, expectedValue := range allHistoricalData {
+				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", key)).
+					Returns().Status(Is(200)).Body(Is(expectedValue)).
+					Assert("Your server should preserve all historical data across multiple crashes.\n" +
+						"Ensure the WAL is never truncated until after a successful checkpoint.\n" +
+						"Recovery should load the latest snapshot (if any) and replay all subsequent WAL operations.")
+			}
+		}).
+
+		// 3
+		Test("Rapid Write Burst Before Crash", func(do *Do) {
+			// Write many operations rapidly in sequence
+			for i := 1; i <= 500; i++ {
+				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/burst:%d", i), strings.Repeat("data", 250)).
+					Returns().Status(Is(200)).
+					Assert("Your server should accept PUT requests.\n" +
+						"Ensure your HTTP handler processes PUT requests correctly.")
+			}
+
+			// Crash immediately
+			do.Restart("primary", syscall.SIGKILL)
+
+			// Verify all acknowledged writes survived
+			for i := 1; i <= 500; i++ {
+				do.HTTP("primary", "GET", fmt.Sprintf("/kv/burst:%d", i)).
+					Returns().Status(Is(200)).Body(Is(strings.Repeat("data", 250))).
+					Assert("Your server acknowledged the PUT but lost the data after crashing.\n" +
+						"Ensure writes are durably stored before acknowledging them to the client.\n" +
+						"Call fsync/flush after writing to WAL, or batch operations and sync before responding.")
+			}
+		}).
+
+		// 4
+		Test("Large Dataset With Concurrent Writes", func(do *Do) {
+			// Write a large dataset concurrently to stress-test recovery
+			putKV := func(key, value string) func() {
+				return func() {
+					do.HTTP("primary", "PUT", "/kv/large:"+key, value).
+						Returns().Status(Is(200)).
+						Assert("Your server should handle concurrent PUT requests.\n" +
+							"Ensure thread-safety in your storage implementation.")
+				}
+			}
+
+			fns := []func(){}
+			for i := 1; i <= 1_000; i++ {
+				fns = append(fns, putKV(fmt.Sprintf("key%d", i), strings.Repeat("x", 100)))
+			}
+
+			do.Concurrently(fns...)
+
+			// Crash immediately after concurrent writes
+			do.Restart("primary", syscall.SIGKILL)
+
+			// Verify all acknowledged writes survived
+			for i := 1; i <= 1_000; i++ {
+				do.HTTP("primary", "GET", fmt.Sprintf("/kv/large:key%d", i)).
+					Returns().Status(Is(200)).Body(Is(strings.Repeat("x", 100))).
+					Assert("Your server should preserve all acknowledged writes after crash.\n" +
+						"Ensure your WAL writes are thread-safe and durably stored before acknowledging.\n" +
+						"If recovery is slow, consider implementing checkpointing to reduce replay time.")
+			}
+		})
+}

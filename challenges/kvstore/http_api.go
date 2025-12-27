@@ -25,7 +25,7 @@ func HTTPAPI() *Suite {
 			for country, capital := range capitals {
 				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s:capital", country), capital).
 					Returns().Status(Is(200)).
-					Assert("Your server should accept PUT requests and return 200 OK.\n" +
+					Assert("Your server should accept PUT requests.\n" +
 						"Ensure your HTTP handler processes PUT requests to /kv/{key}.")
 			}
 
@@ -47,13 +47,13 @@ func HTTPAPI() *Suite {
 			// Empty value
 			do.HTTP("primary", "PUT", "/kv/empty").
 				Returns().Status(Is(400)).Body(Is("value cannot be empty\n")).
-				Assert("Your server accepted an empty value when it should reject it.\n" +
+				Assert("Your server should reject empty values.\n" +
 					"Add validation to return 400 Bad Request for empty values.")
 
 			// Empty key
 			do.HTTP("primary", "PUT", "/kv/", "some_value").
 				Returns().Status(Is(400)).Body(Is("key cannot be empty\n")).
-				Assert("Your server accepted an empty key when it should reject it.\n" +
+				Assert("Your server should reject empty keys.\n" +
 					"Add validation to return 400 Bad Request for empty keys.")
 
 			// Unicode handling
@@ -131,7 +131,7 @@ func HTTPAPI() *Suite {
 			// Empty key
 			do.HTTP("primary", "GET", "/kv/").
 				Returns().Status(Is(400)).Body(Is("key cannot be empty\n")).
-				Assert("Your server accepted an empty key when it should reject it.\n" +
+				Assert("Your server should reject empty keys.\n" +
 					"Add validation to return 400 Bad Request for empty keys.")
 		}).
 
@@ -140,7 +140,7 @@ func HTTPAPI() *Suite {
 			// Delete an existing key
 			do.HTTP("primary", "DELETE", "/kv/tanzania:capital").
 				Returns().Status(Is(200)).
-				Assert("Your server should accept DELETE requests and return 200 OK.\n" +
+				Assert("Your server should accept DELETE requests.\n" +
 					"Ensure your HTTP handler processes DELETE requests to /kv/{key}.")
 
 			// Verify deletion worked
@@ -167,7 +167,7 @@ func HTTPAPI() *Suite {
 			// Delete same key twice
 			do.HTTP("primary", "PUT", "/kv/delete:twice", "value").
 				Returns().Status(Is(200)).
-				Assert("Your server should accept PUT requests and return 200 OK.\n" +
+				Assert("Your server should accept PUT requests.\n" +
 					"Ensure your HTTP handler processes PUT requests to /kv/{key}.")
 			do.HTTP("primary", "DELETE", "/kv/delete:twice").
 				Returns().Status(Is(200)).
@@ -181,7 +181,7 @@ func HTTPAPI() *Suite {
 			// Empty key
 			do.HTTP("primary", "DELETE", "/kv/").
 				Returns().Status(Is(400)).Body(Is("key cannot be empty\n")).
-				Assert("Your server accepted an empty key when it should reject it.\n" +
+				Assert("Your server should reject empty keys.\n" +
 					"Add validation to return 400 Bad Request for empty keys.")
 		}).
 
@@ -196,7 +196,7 @@ func HTTPAPI() *Suite {
 			for key, value := range testKeys {
 				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", key), value).
 					Returns().Status(Is(200)).
-					Assert("Your server should accept PUT requests and return 200 OK.\n" +
+					Assert("Your server should accept PUT requests.\n" +
 						"Ensure your HTTP handler processes PUT requests to /kv/{key}.")
 			}
 
@@ -242,7 +242,7 @@ func HTTPAPI() *Suite {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/concurrent:"+key, value).
 						Returns().Status(Is(200)).
-						Assert("Your server should handle concurrent PUT requests correctly.\n" +
+						Assert("Your server should handle concurrent PUT requests.\n" +
 							"Ensure thread-safety in your storage implementation.")
 				}
 			}
@@ -258,7 +258,7 @@ func HTTPAPI() *Suite {
 			for i := 1; i <= 100; i++ {
 				do.HTTP("primary", "GET", fmt.Sprintf("/kv/concurrent:key%d", i)).
 					Returns().Status(Is(200)).Body(Is(fmt.Sprintf("value%d", i))).
-					Assert("Your server should store all concurrent writes correctly.\n" +
+					Assert("Your server should store all concurrent writes.\n" +
 						"Ensure no data corruption or loss occurs during concurrent operations.")
 			}
 		}).
@@ -271,7 +271,7 @@ func HTTPAPI() *Suite {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/concurrent:"+key, value).
 						Returns().Status(Is(200)).
-						Assert("Your server should handle concurrent PUT requests correctly.\n" +
+						Assert("Your server should handle concurrent PUT requests.\n" +
 							"Ensure thread-safety in your storage implementation.")
 				}
 			}
