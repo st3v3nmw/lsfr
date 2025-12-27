@@ -28,7 +28,7 @@ func createChallengeFiles(challenge *registry.Challenge, targetPath string) erro
 
 # This script builds and runs your implementation.
 # lsfr will execute this script to start your program.
-# "$@" passes command-line arguments from lsfr to your program:
+# "$@" passes command-line arguments from lsfr to your program, e.g.:
 #   --working-dir=<path>: Directory where your program should write files
 
 echo "Replace this line with the command that runs your implementation."

@@ -88,6 +88,10 @@ func (c *Challenge) README() string {
 2. Run _lsfr test_ to test the current stage.
 3. Run _lsfr next_ when ready to advance.
 
+## CI/CD
+
+Want to run tests automatically? Check out the [CI/CD guide](https://lsfr.io/guides/ci-cd/).
+
 Good luck! 🚀
 `, c.Name, c.Summary, stages)
 }
