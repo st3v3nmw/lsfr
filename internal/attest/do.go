@@ -11,11 +11,13 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/st3v3nmw/lsfr/pkg/threadsafe"
 )
 
 // Do provides the test harness and acts as the test runner
 type Do struct {
-	processes  *syncMap[string, *Process]
+	processes  *threadsafe.Map[string, *Process]
 	config     *Config
 	workingDir string
 
@@ -27,15 +29,17 @@ type Do struct {
 func newDo(ctx context.Context, config *Config) *Do {
 	doCtx, cancel := context.WithCancel(ctx)
 
+	// Build working directory path with timestamp
 	timestamp := time.Now().Format("20060102-150405")
-	workingDir := filepath.Join(".lsfr", fmt.Sprintf("run-%s", timestamp))
+	workingDir := filepath.Join(config.WorkingDir, fmt.Sprintf("run-%s", timestamp))
+
 	err := os.MkdirAll(workingDir, 0755)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create working directory: %v", err))
 	}
 
 	return &Do{
-		processes:  newMap[string, *Process](),
+		processes:  threadsafe.NewMap[string, *Process](),
 		config:     config,
 		workingDir: workingDir,
 		ctx:        doCtx,

@@ -84,19 +84,19 @@ type HTTPAssert struct {
 	responseBody   string
 	responseStatus int
 
-	expectedStatus int
-	expectedBody   string
+	statusMatcher Matcher[int]
+	bodyMatcher   Matcher[string]
 }
 
-// Status sets the expected HTTP response status code
-func (a *HTTPAssert) Status(code int) *HTTPAssert {
-	a.expectedStatus = code
+// Status sets the expected HTTP response status code matcher
+func (a *HTTPAssert) Status(matcher Matcher[int]) *HTTPAssert {
+	a.statusMatcher = matcher
 	return a
 }
 
-// Body sets the expected HTTP response body content
-func (a *HTTPAssert) Body(content string) *HTTPAssert {
-	a.expectedBody = content
+// Body sets the expected HTTP response body matcher
+func (a *HTTPAssert) Body(matcher Matcher[string]) *HTTPAssert {
+	a.bodyMatcher = matcher
 	return a
 }
 
@@ -143,26 +143,28 @@ func (a *HTTPAssert) execute() bool {
 	a.responseBody = string(responseBody)
 	a.responseStatus = resp.StatusCode
 
-	return a.responseStatus == a.expectedStatus &&
-		a.responseBody == a.expectedBody
+	statusMatches := a.statusMatcher == nil || a.statusMatcher.Matches(a.responseStatus)
+	bodyMatches := a.bodyMatcher == nil || a.bodyMatcher.Matches(a.responseBody)
+
+	return statusMatches && bodyMatches
 }
 
 func (a *HTTPAssert) check() {
 	p := a.promise
 
-	if a.responseStatus != a.expectedStatus {
-		msg := fmt.Sprintf("%s %s\n  Expected %d %s, got %d %s%s",
+	if a.statusMatcher != nil && !a.statusMatcher.Matches(a.responseStatus) {
+		msg := fmt.Sprintf("%s %s\n  Expected status: %s\n  Actual status: %d %s%s",
 			p.method, p.url,
-			a.expectedStatus, http.StatusText(a.expectedStatus),
+			a.statusMatcher.Expected(),
 			a.responseStatus, http.StatusText(a.responseStatus),
 			a.formatHelp())
 		panic(msg)
 	}
 
-	if a.responseBody != a.expectedBody {
-		msg := fmt.Sprintf("%s %s\n  Expected response: %q\n  Actual response: %q%s",
+	if a.bodyMatcher != nil && !a.bodyMatcher.Matches(a.responseBody) {
+		msg := fmt.Sprintf("%s %s\n  Expected response: %s\n  Actual response: %q%s",
 			p.method, p.url,
-			a.expectedBody, a.responseBody,
+			a.bodyMatcher.Expected(), a.responseBody,
 			a.formatHelp())
 		panic(msg)
 	}
@@ -176,19 +178,19 @@ type CLIAssert struct {
 	output   string
 	exitCode int
 
-	expectedOutput   string
-	expectedExitCode int
+	exitMatcher   Matcher[int]
+	outputMatcher Matcher[string]
 }
 
-// Exit sets the expected exit code
-func (a *CLIAssert) Exit(code int) *CLIAssert {
-	a.expectedExitCode = code
+// ExitCode sets the expected exit code matcher
+func (a *CLIAssert) ExitCode(matcher Matcher[int]) *CLIAssert {
+	a.exitMatcher = matcher
 	return a
 }
 
-// Output sets the expected command output
-func (a *CLIAssert) Output(text string) *CLIAssert {
-	a.expectedOutput = text
+// Output sets the expected command output matcher
+func (a *CLIAssert) Output(matcher Matcher[string]) *CLIAssert {
+	a.outputMatcher = matcher
 	return a
 }
 
@@ -236,25 +238,27 @@ func (a *CLIAssert) execute() bool {
 		a.exitCode = 0
 	}
 
-	return a.exitCode == a.expectedExitCode &&
-		a.output == a.expectedOutput
+	exitCodeMatches := a.exitMatcher == nil || a.exitMatcher.Matches(a.exitCode)
+	outputMatches := a.outputMatcher == nil || a.outputMatcher.Matches(a.output)
+
+	return exitCodeMatches && outputMatches
 }
 
 func (a *CLIAssert) check() {
 	p := a.promise
 
-	if a.exitCode != a.expectedExitCode {
-		msg := fmt.Sprintf("%s %s\n  Expected exit code %d, got %d%s",
+	if a.exitMatcher != nil && !a.exitMatcher.Matches(a.exitCode) {
+		msg := fmt.Sprintf("%s %s\n  Expected exit code: %s\n  Actual exit code: %d%s",
 			p.command, strings.Join(p.args, " "),
-			a.expectedExitCode, a.exitCode,
+			a.exitMatcher.Expected(), a.exitCode,
 			a.formatHelp())
 		panic(msg)
 	}
 
-	if a.output != a.expectedOutput {
-		msg := fmt.Sprintf("%s %s\n  Expected output: %q\n  Actual output: %q%s",
+	if a.outputMatcher != nil && !a.outputMatcher.Matches(a.output) {
+		msg := fmt.Sprintf("%s %s\n  Expected output: %s\n  Actual output: %q%s",
 			p.command, strings.Join(p.args, " "),
-			a.expectedOutput, a.output,
+			a.outputMatcher.Expected(), a.output,
 			a.formatHelp())
 		panic(msg)
 	}

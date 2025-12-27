@@ -7,6 +7,9 @@ type Config struct {
 	// Command is the script/command used to build & run the system under test
 	Command string
 
+	// WorkingDir is the base directory for test runs
+	WorkingDir string
+
 	// ProcessStartTimeout for process startup
 	ProcessStartTimeout time.Duration
 	// ProcessShutdownTimeout for process shutdown
@@ -27,6 +30,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Command:                "./run.sh",
+		WorkingDir:             ".lsfr",
 		ProcessStartTimeout:    10 * time.Second,
 		ProcessShutdownTimeout: 10 * time.Second,
 		ProcessRestartDelay:    time.Second,

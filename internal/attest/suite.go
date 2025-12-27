@@ -42,6 +42,10 @@ func (s *Suite) WithConfig(config *Config) *Suite {
 		merged.Command = config.Command
 	}
 
+	if config.WorkingDir != "" {
+		merged.WorkingDir = config.WorkingDir
+	}
+
 	if config.ProcessStartTimeout != 0 {
 		merged.ProcessStartTimeout = config.ProcessStartTimeout
 	}
