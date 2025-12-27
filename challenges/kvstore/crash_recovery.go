@@ -130,8 +130,8 @@ func CrashRecovery() *Suite {
 		}).
 
 		// 4
-		Test("Large Dataset With Concurrent Writes", func(do *Do) {
-			// Write a large dataset concurrently to stress-test recovery
+		Test("Test Persistence When Under Load", func(do *Do) {
+			// Generate concurrent load
 			putFn := func(key, value string) func() {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/large:"+key, value).
@@ -142,7 +142,7 @@ func CrashRecovery() *Suite {
 			}
 
 			fns := []func(){}
-			for i := 1; i <= 1_000; i++ {
+			for i := 1; i <= 10_000; i++ {
 				fns = append(fns, putFn(fmt.Sprintf("key%d", i), strings.Repeat("x", 100)))
 			}
 
@@ -152,7 +152,7 @@ func CrashRecovery() *Suite {
 			do.Restart("primary", syscall.SIGKILL)
 
 			// Verify all acknowledged writes survived
-			for i := 1; i <= 1_000; i++ {
+			for i := 1; i <= 10_000; i++ {
 				do.HTTP("primary", "GET", fmt.Sprintf("/kv/large:key%d", i)).
 					Returns().Status(Is(200)).Body(Is(strings.Repeat("x", 100))).
 					Assert("Your server should preserve all acknowledged writes after crash.\n" +
