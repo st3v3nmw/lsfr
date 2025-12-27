@@ -238,7 +238,7 @@ func HTTPAPI() *Suite {
 		// 8
 		Test("Concurrent Operations - Different Keys", func(do *Do) {
 			// Test concurrent writes to different keys
-			putKV := func(key, value string) func() {
+			putFn := func(key, value string) func() {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/concurrent:"+key, value).
 						Returns().Status(Is(200)).
@@ -249,7 +249,7 @@ func HTTPAPI() *Suite {
 
 			fns := []func(){}
 			for i := 1; i <= 100; i++ {
-				fns = append(fns, putKV(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i)))
+				fns = append(fns, putFn(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i)))
 			}
 
 			do.Concurrently(fns...)
@@ -267,7 +267,7 @@ func HTTPAPI() *Suite {
 		Test("Concurrent Operations - Same Key", func(do *Do) {
 			// Test concurrent writes to the SAME key
 			// Last write should win, but no crashes or data corruption
-			putKV := func(key, value string) func() {
+			putFn := func(key, value string) func() {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/concurrent:"+key, value).
 						Returns().Status(Is(200)).
@@ -279,7 +279,7 @@ func HTTPAPI() *Suite {
 			raceFns := []func(){}
 			expectedValues := []string{}
 			for i := 1; i <= 100; i++ {
-				raceFns = append(raceFns, putKV("racekey", fmt.Sprintf("value%d", i)))
+				raceFns = append(raceFns, putFn("racekey", fmt.Sprintf("value%d", i)))
 				expectedValues = append(expectedValues, fmt.Sprintf("value%d", i))
 			}
 

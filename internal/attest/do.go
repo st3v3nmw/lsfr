@@ -288,9 +288,9 @@ func (do *Do) HTTP(name, method, path string, args ...any) *HTTPPromise {
 		body = []byte(args[0].(string))
 	}
 
-	var headers map[string]string
+	var headers H
 	if len(args) >= 2 {
-		headers = args[1].(map[string]string)
+		headers = args[1].(H)
 	}
 
 	return &HTTPPromise{

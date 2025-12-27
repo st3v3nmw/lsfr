@@ -18,7 +18,6 @@ type Challenge struct {
 	Key        string
 	Name       string
 	Summary    string
-	Concepts   []string
 	Stages     map[string]*Stage
 	StageOrder []string
 }

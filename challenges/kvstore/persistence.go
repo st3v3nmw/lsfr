@@ -97,7 +97,7 @@ func Persistence() *Suite {
 		// 3
 		Test("Test Persistence When Under Load", func(do *Do) {
 			// Generate concurrent load
-			putKV := func(key, value string) func() {
+			putFn := func(key, value string) func() {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/load:"+key, value).
 						Returns().Status(Is(200)).
@@ -108,7 +108,7 @@ func Persistence() *Suite {
 
 			fns := []func(){}
 			for i := 1; i <= 10_000; i++ {
-				fns = append(fns, putKV(fmt.Sprintf("concurrent%d", i), fmt.Sprintf("value%d", i)))
+				fns = append(fns, putFn(fmt.Sprintf("concurrent%d", i), fmt.Sprintf("value%d", i)))
 			}
 
 			do.Concurrently(fns...)

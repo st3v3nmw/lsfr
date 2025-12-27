@@ -8,7 +8,6 @@ func init() {
 		Summary: `In this challenge, you'll build a distributed key-value store from scratch.
 You'll start with a simple HTTP API and progressively add persistence, crash recovery,
 clustering, replication, and consensus mechanisms.`,
-		Concepts: []string{"Storage Engines", "Fault Tolerance", "Replication", "Consensus"},
 	}
 
 	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPI)

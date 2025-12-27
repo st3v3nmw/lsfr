@@ -132,7 +132,7 @@ func CrashRecovery() *Suite {
 		// 4
 		Test("Large Dataset With Concurrent Writes", func(do *Do) {
 			// Write a large dataset concurrently to stress-test recovery
-			putKV := func(key, value string) func() {
+			putFn := func(key, value string) func() {
 				return func() {
 					do.HTTP("primary", "PUT", "/kv/large:"+key, value).
 						Returns().Status(Is(200)).
@@ -143,7 +143,7 @@ func CrashRecovery() *Suite {
 
 			fns := []func(){}
 			for i := 1; i <= 1_000; i++ {
-				fns = append(fns, putKV(fmt.Sprintf("key%d", i), strings.Repeat("x", 100)))
+				fns = append(fns, putFn(fmt.Sprintf("key%d", i), strings.Repeat("x", 100)))
 			}
 
 			do.Concurrently(fns...)

@@ -68,13 +68,16 @@ func (b *PromiseBase) setFor(timeout time.Duration) {
 	b.timeout = timeout
 }
 
+// H is a convenience type for HTTP headers
+type H map[string]string
+
 // HTTPPromise represents a deferred HTTP request
 type HTTPPromise struct {
 	PromiseBase
 
 	method  string
 	url     string
-	headers map[string]string
+	headers H
 	body    []byte
 }
 
