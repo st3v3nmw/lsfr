@@ -6,13 +6,18 @@ func init() {
 	challenge := &registry.Challenge{
 		Name: "Distributed Key-Value Store",
 		Summary: `In this challenge, you'll build a distributed key-value store from scratch.
-You'll start with a simple HTTP API and progressively add persistence, crash recovery,
-clustering, replication, and consensus mechanisms.`,
+You'll start with a single-node system that handles persistence and crash recovery,
+then implement Raft's leader election, log replication, and fault tolerance mechanisms.`,
 	}
 
 	challenge.AddStage("http-api", "HTTP API with GET/PUT/DELETE Operations", HTTPAPI)
 	challenge.AddStage("persistence", "Data Survives SIGTERM", Persistence)
 	challenge.AddStage("crash-recovery", "Data Survives SIGKILL", CrashRecovery)
+	challenge.AddStage("leader-election", "Raft Leader Election", LeaderElection)
+	challenge.AddStage("log-replication", "Raft Log Replication", LogReplication)
+	challenge.AddStage("membership-changes", "Dynamic Cluster Membership", MembershipChanges)
+	challenge.AddStage("fault-tolerance", "Node Failures and Network Partitions", FaultTolerance)
+	challenge.AddStage("log-compaction", "Snapshots and Log Truncation", LogCompaction)
 
 	registry.RegisterChallenge("kv-store", challenge)
 }
