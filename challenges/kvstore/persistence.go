@@ -11,7 +11,7 @@ func Persistence() *Suite {
 	return New().
 		// 0
 		Setup(func(do *Do) {
-			do.Start("primary")
+			do.Start("node")
 		}).
 
 		// 1
@@ -25,7 +25,7 @@ func Persistence() *Suite {
 			}
 
 			for key, value := range testData {
-				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", key), value).
+				do.HTTP("node", "PUT", fmt.Sprintf("/kv/%s", key), value).
 					Returns().Status(Is(200)).
 					Assert("Your server should accept PUT requests and store data.\n" +
 						"Ensure your HTTP handler processes PUT requests correctly.")
@@ -33,17 +33,17 @@ func Persistence() *Suite {
 
 			// Verify data is accessible before restart
 			for key, expectedValue := range testData {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", key)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", key)).
 					Returns().Status(Is(200)).Body(Is(expectedValue)).
 					Assert("Your server should return stored values before persistence test.\n" +
 						"Ensure basic storage functionality works correctly.")
 			}
 
-			do.Restart("primary")
+			do.Restart("node")
 
 			// Verify data survived the restart
 			for key, expectedValue := range testData {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", key)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", key)).
 					Returns().Status(Is(200)).Body(Is(expectedValue)).
 					Assert("Your server should persist data across clean shutdowns.\n" +
 						"Implement data persistence to disk (file-based storage, database, etc.).\n" +
@@ -59,16 +59,16 @@ func Persistence() *Suite {
 				cycleKey := fmt.Sprintf("cycle:restart_%d", cycle)
 				cycleValue := fmt.Sprintf("restart_data_%d", cycle)
 
-				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", cycleKey), cycleValue).
+				do.HTTP("node", "PUT", fmt.Sprintf("/kv/%s", cycleKey), cycleValue).
 					Returns().Status(Is(200)).
 					Assert("Your server should store data for integrity test cycle.\n" +
 						"Ensure PUT operations work correctly during multiple restart cycles.")
 
 				// Restart the server
-				do.Restart("primary")
+				do.Restart("node")
 
 				// Verify cycle data persisted
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", cycleKey)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", cycleKey)).
 					Returns().Status(Is(200)).Body(Is(cycleValue)).
 					Assert("Your server should maintain data integrity across multiple restarts.\n" +
 						"Ensure persistent storage remains consistent and uncorrupted.")
@@ -87,7 +87,7 @@ func Persistence() *Suite {
 			}
 
 			for key, expectedValue := range allHistoricalData {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", key)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", key)).
 					Returns().Status(Is(200)).Body(Is(expectedValue)).
 					Assert("Your server should preserve all historical data across restarts.\n" +
 						"Ensure no data corruption or loss occurs during persistence operations.")
@@ -99,7 +99,7 @@ func Persistence() *Suite {
 			// Generate concurrent load
 			putFn := func(key, value string) func() {
 				return func() {
-					do.HTTP("primary", "PUT", "/kv/load:"+key, value).
+					do.HTTP("node", "PUT", "/kv/load:"+key, value).
 						Returns().Status(Is(200)).
 						Assert("Your server should handle concurrent PUT requests under load.\n" +
 							"Ensure persistence works during high-traffic scenarios.")
@@ -114,11 +114,11 @@ func Persistence() *Suite {
 			do.Concurrently(fns...)
 
 			// Immediately restart to test persistence under concurrent load
-			do.Restart("primary")
+			do.Restart("node")
 
 			// Verify all concurrent data was persisted
 			for i := 1; i <= 10_000; i++ {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/load:concurrent%d", i)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/load:concurrent%d", i)).
 					Returns().Status(Is(200)).Body(Is(fmt.Sprintf("value%d", i))).
 					Assert("Your server should persist all concurrent writes.\n" +
 						"Ensure thread-safe persistence and no data loss under load.")

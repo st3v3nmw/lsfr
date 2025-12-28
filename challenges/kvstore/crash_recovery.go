@@ -12,53 +12,53 @@ func CrashRecovery() *Suite {
 	return New().
 		// 0
 		Setup(func(do *Do) {
-			do.Start("primary")
+			do.Start("node")
 		}).
 
 		// 1
 		Test("Basic WAL Durability", func(do *Do) {
 			// Test various operations that should all be logged
-			do.HTTP("primary", "PUT", "/kv/wal:basic", "initial").
+			do.HTTP("node", "PUT", "/kv/wal:basic", "initial").
 				Returns().Status(Is(200)).
 				Assert("Your server should accept PUT requests.\n" +
 					"Ensure your HTTP handler processes PUT requests correctly.")
 
-			do.HTTP("primary", "PUT", "/kv/wal:updated", "v1").
+			do.HTTP("node", "PUT", "/kv/wal:updated", "v1").
 				Returns().Status(Is(200)).
 				Assert("Your server should accept PUT requests.\n" +
 					"Ensure your HTTP handler processes PUT requests correctly.")
 
-			do.HTTP("primary", "PUT", "/kv/wal:updated", "v2").
+			do.HTTP("node", "PUT", "/kv/wal:updated", "v2").
 				Returns().Status(Is(200)).
 				Assert("Your server should allow overwriting existing keys.\n" +
 					"Ensure PUT requests update the value of existing keys.")
 
-			do.HTTP("primary", "PUT", "/kv/wal:deleted", "temporary").
+			do.HTTP("node", "PUT", "/kv/wal:deleted", "temporary").
 				Returns().Status(Is(200)).
 				Assert("Your server should accept PUT requests.\n" +
 					"Ensure your HTTP handler processes PUT requests correctly.")
 
-			do.HTTP("primary", "DELETE", "/kv/wal:deleted").
+			do.HTTP("node", "DELETE", "/kv/wal:deleted").
 				Returns().Status(Is(200)).
 				Assert("Your server should accept DELETE requests.\n" +
 					"Ensure your HTTP handler processes DELETE requests correctly.")
 
 			// Crash without warning
-			do.Restart("primary", syscall.SIGKILL)
+			do.Restart("node", syscall.SIGKILL)
 
 			// Verify correct final state after recovery
-			do.HTTP("primary", "GET", "/kv/wal:basic").
+			do.HTTP("node", "GET", "/kv/wal:basic").
 				Returns().Status(Is(200)).Body(Is("initial")).
 				Assert("Your server acknowledged the PUT but lost the data after crashing.\n" +
 					"Implement a Write-Ahead Log (WAL) that records operations before applying them to memory.\n" +
 					"Ensure writes are durably stored (fsync/flush) before or when acknowledging to the client.")
 
-			do.HTTP("primary", "GET", "/kv/wal:updated").
+			do.HTTP("node", "GET", "/kv/wal:updated").
 				Returns().Status(Is(200)).Body(Is("v2")).
 				Assert("Your server should preserve updated values after crash.\n" +
 					"Ensure your WAL records all PUT operations, including updates to existing keys.")
 
-			do.HTTP("primary", "GET", "/kv/wal:deleted").
+			do.HTTP("node", "GET", "/kv/wal:deleted").
 				Returns().Status(Is(404)).
 				Assert("Your server should preserve deletion state after crash.\n" +
 					"Ensure your WAL records DELETE operations and replays them correctly during recovery.")
@@ -72,16 +72,16 @@ func CrashRecovery() *Suite {
 				cycleKey := fmt.Sprintf("cycle:crash_%d", cycle)
 				cycleValue := fmt.Sprintf("crash_data_%d", cycle)
 
-				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/%s", cycleKey), cycleValue).
+				do.HTTP("node", "PUT", fmt.Sprintf("/kv/%s", cycleKey), cycleValue).
 					Returns().Status(Is(200)).
 					Assert("Your server should accept PUT requests.\n" +
 						"Ensure your HTTP handler processes PUT requests correctly.")
 
 				// Crash without warning
-				do.Restart("primary", syscall.SIGKILL)
+				do.Restart("node", syscall.SIGKILL)
 
 				// Verify cycle data survived
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", cycleKey)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", cycleKey)).
 					Returns().Status(Is(200)).Body(Is(cycleValue)).
 					Assert("Your server should preserve data across crash/restart cycles.\n" +
 						"Ensure your WAL is append-only and recovery replays all operations correctly.")
@@ -98,7 +98,7 @@ func CrashRecovery() *Suite {
 			}
 
 			for key, expectedValue := range allHistoricalData {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/%s", key)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/%s", key)).
 					Returns().Status(Is(200)).Body(Is(expectedValue)).
 					Assert("Your server should preserve all historical data across multiple crashes.\n" +
 						"Ensure the WAL is never truncated until after a successful checkpoint.\n" +
@@ -110,18 +110,18 @@ func CrashRecovery() *Suite {
 		Test("Rapid Write Burst Before Crash", func(do *Do) {
 			// Write many operations rapidly in sequence
 			for i := 1; i <= 500; i++ {
-				do.HTTP("primary", "PUT", fmt.Sprintf("/kv/burst:%d", i), strings.Repeat("data", 250)).
+				do.HTTP("node", "PUT", fmt.Sprintf("/kv/burst:%d", i), strings.Repeat("data", 250)).
 					Returns().Status(Is(200)).
 					Assert("Your server should accept PUT requests.\n" +
 						"Ensure your HTTP handler processes PUT requests correctly.")
 			}
 
 			// Crash immediately
-			do.Restart("primary", syscall.SIGKILL)
+			do.Restart("node", syscall.SIGKILL)
 
 			// Verify all acknowledged writes survived
 			for i := 1; i <= 500; i++ {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/burst:%d", i)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/burst:%d", i)).
 					Returns().Status(Is(200)).Body(Is(strings.Repeat("data", 250))).
 					Assert("Your server acknowledged the PUT but lost the data after crashing.\n" +
 						"Ensure writes are durably stored before acknowledging them to the client.\n" +
@@ -134,7 +134,7 @@ func CrashRecovery() *Suite {
 			// Generate concurrent load
 			putFn := func(key, value string) func() {
 				return func() {
-					do.HTTP("primary", "PUT", "/kv/large:"+key, value).
+					do.HTTP("node", "PUT", "/kv/large:"+key, value).
 						Returns().Status(Is(200)).
 						Assert("Your server should handle concurrent PUT requests.\n" +
 							"Ensure thread-safety in your storage implementation.")
@@ -149,11 +149,11 @@ func CrashRecovery() *Suite {
 			do.Concurrently(fns...)
 
 			// Crash immediately after concurrent writes
-			do.Restart("primary", syscall.SIGKILL)
+			do.Restart("node", syscall.SIGKILL)
 
 			// Verify all acknowledged writes survived
 			for i := 1; i <= 10_000; i++ {
-				do.HTTP("primary", "GET", fmt.Sprintf("/kv/large:key%d", i)).
+				do.HTTP("node", "GET", fmt.Sprintf("/kv/large:key%d", i)).
 					Returns().Status(Is(200)).Body(Is(strings.Repeat("x", 100))).
 					Assert("Your server should preserve all acknowledged writes after crash.\n" +
 						"Ensure your WAL writes are thread-safe and durably stored before acknowledging.\n" +
