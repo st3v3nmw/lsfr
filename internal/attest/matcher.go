@@ -2,8 +2,11 @@ package attest
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 // Matcher is a composable predicate used in assertions to validate actual values
@@ -34,18 +37,28 @@ func (m isMatcher[T]) Expected() string {
 }
 
 // isNullMatcher validates that a value is nil.
-type isNullMatcher struct{}
+type isNullMatcher[T any] struct{}
 
 // IsNull creates a matcher that checks if a value is nil.
-func IsNull() Matcher[any] {
-	return isNullMatcher{}
+func IsNull[T comparable]() isNullMatcher[T] {
+	return isNullMatcher[T]{}
 }
 
-func (m isNullMatcher) Matches(actual any) bool {
-	return actual == nil
+func (m isNullMatcher[T]) Matches(actual T) bool {
+	v := reflect.ValueOf(actual)
+	if !v.IsValid() {
+		return true
+	}
+
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
 
-func (m isNullMatcher) Expected() string {
+func (m isNullMatcher[T]) Expected() string {
 	return "null"
 }
 
@@ -139,4 +152,55 @@ func (m notMatcher[T]) Matches(actual T) bool {
 
 func (m notMatcher[T]) Expected() string {
 	return fmt.Sprintf("not %s", m.matcher.Expected())
+}
+
+// checkAll returns true if all matchers pass for the given value.
+// If onFail is provided, it's called with the first failing matcher.
+func checkAll[T any](value T, matchers []Matcher[T], onFail func(Matcher[T], T)) bool {
+	for _, matcher := range matchers {
+		if !matcher.Matches(value) {
+			if onFail != nil {
+				onFail(matcher, value)
+			}
+
+			return false
+		}
+	}
+
+	return true
+}
+
+// JSONFieldMatcher pairs a gjson path with a matcher for that field.
+type JSONFieldMatcher struct {
+	Path    string
+	Matcher Matcher[string]
+}
+
+// checkAllJSON returns true if all JSON field matchers pass for the given JSON.
+// If onFail is provided, it's called with the first failing matcher.
+func checkAllJSON(json string, matchers []JSONFieldMatcher, onFail func(JSONFieldMatcher, any)) bool {
+	for _, m := range matchers {
+		result := gjson.Get(json, m.Path)
+		if _, ok := m.Matcher.(isNullMatcher[string]); ok {
+			value := result.Value()
+			if value != nil {
+				if onFail != nil {
+					onFail(m, value)
+				}
+
+				return false
+			}
+		} else {
+			value := result.String()
+			if !m.Matcher.Matches(value) {
+				if onFail != nil {
+					onFail(m, value)
+				}
+
+				return false
+			}
+		}
+	}
+
+	return true
 }

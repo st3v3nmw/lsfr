@@ -61,7 +61,6 @@ type Assert interface {
 	formatHelp() string
 }
 
-// Compile-time type checks.
 var _ Assert = (*HTTPAssert)(nil)
 var _ Assert = (*CLIAssert)(nil)
 
@@ -84,19 +83,35 @@ type HTTPAssert struct {
 	responseBody   string
 	responseStatus int
 
-	statusMatcher Matcher[int]
-	bodyMatcher   Matcher[string]
+	statusMatchers []Matcher[int]
+	bodyMatchers   []Matcher[string]
+	jsonMatchers   []JSONFieldMatcher
 }
 
-// Status sets the expected HTTP response status code matcher.
-func (a *HTTPAssert) Status(matcher Matcher[int]) *HTTPAssert {
-	a.statusMatcher = matcher
+// Status adds expected HTTP response status code matchers.
+// All matchers must pass.
+func (a *HTTPAssert) Status(matchers ...Matcher[int]) *HTTPAssert {
+	a.statusMatchers = append(a.statusMatchers, matchers...)
 	return a
 }
 
-// Body sets the expected HTTP response body matcher.
-func (a *HTTPAssert) Body(matcher Matcher[string]) *HTTPAssert {
-	a.bodyMatcher = matcher
+// Body adds expected HTTP response body matchers.
+// All matchers must pass.
+func (a *HTTPAssert) Body(matchers ...Matcher[string]) *HTTPAssert {
+	a.bodyMatchers = append(a.bodyMatchers, matchers...)
+	return a
+}
+
+// JSON adds expected matchers for a JSON field at the given gjson path.
+// All matchers must pass.
+func (a *HTTPAssert) JSON(path string, matchers ...Matcher[string]) *HTTPAssert {
+	for _, matcher := range matchers {
+		a.jsonMatchers = append(a.jsonMatchers, JSONFieldMatcher{
+			Path:    path,
+			Matcher: matcher,
+		})
+	}
+
 	return a
 }
 
@@ -143,31 +158,32 @@ func (a *HTTPAssert) execute() bool {
 	a.responseBody = string(responseBody)
 	a.responseStatus = resp.StatusCode
 
-	statusMatches := a.statusMatcher == nil || a.statusMatcher.Matches(a.responseStatus)
-	bodyMatches := a.bodyMatcher == nil || a.bodyMatcher.Matches(a.responseBody)
-
-	return statusMatches && bodyMatches
+	return checkAll(a.responseStatus, a.statusMatchers, nil) &&
+		checkAll(a.responseBody, a.bodyMatchers, nil) &&
+		checkAllJSON(a.responseBody, a.jsonMatchers, nil)
 }
 
 func (a *HTTPAssert) check() {
 	p := a.promise
 
-	if a.statusMatcher != nil && !a.statusMatcher.Matches(a.responseStatus) {
+	checkAll(a.responseStatus, a.statusMatchers, func(m Matcher[int], actual int) {
 		msg := fmt.Sprintf("%s %s\n  Expected status: %s\n  Actual status: %d %s%s",
-			p.method, p.url,
-			a.statusMatcher.Expected(),
-			a.responseStatus, http.StatusText(a.responseStatus),
-			a.formatHelp())
+			p.method, p.url, m.Expected(), actual,
+			http.StatusText(actual), a.formatHelp())
 		panic(msg)
-	}
+	})
 
-	if a.bodyMatcher != nil && !a.bodyMatcher.Matches(a.responseBody) {
+	checkAll(a.responseBody, a.bodyMatchers, func(m Matcher[string], actual string) {
 		msg := fmt.Sprintf("%s %s\n  Expected response: %s\n  Actual response: %q%s",
-			p.method, p.url,
-			a.bodyMatcher.Expected(), a.responseBody,
-			a.formatHelp())
+			p.method, p.url, m.Expected(), actual, a.formatHelp())
 		panic(msg)
-	}
+	})
+
+	checkAllJSON(a.responseBody, a.jsonMatchers, func(m JSONFieldMatcher, actual any) {
+		msg := fmt.Sprintf("%s %s\n  Expected JSON field %q: %s\n  Actual value: %v%s",
+			p.method, p.url, m.Path, m.Matcher.Expected(), actual, a.formatHelp())
+		panic(msg)
+	})
 }
 
 // CLIAssert provides CLI command output and exit code assertions.
@@ -178,19 +194,21 @@ type CLIAssert struct {
 	output   string
 	exitCode int
 
-	exitMatcher   Matcher[int]
-	outputMatcher Matcher[string]
+	exitMatchers   []Matcher[int]
+	outputMatchers []Matcher[string]
 }
 
-// ExitCode sets the expected exit code matcher.
-func (a *CLIAssert) ExitCode(matcher Matcher[int]) *CLIAssert {
-	a.exitMatcher = matcher
+// ExitCode adds expected exit code matchers.
+// All matchers must pass.
+func (a *CLIAssert) ExitCode(matchers ...Matcher[int]) *CLIAssert {
+	a.exitMatchers = append(a.exitMatchers, matchers...)
 	return a
 }
 
-// Output sets the expected command output matcher.
-func (a *CLIAssert) Output(matcher Matcher[string]) *CLIAssert {
-	a.outputMatcher = matcher
+// Output adds expected command output matchers.
+// All matchers must pass.
+func (a *CLIAssert) Output(matchers ...Matcher[string]) *CLIAssert {
+	a.outputMatchers = append(a.outputMatchers, matchers...)
 	return a
 }
 
@@ -238,28 +256,24 @@ func (a *CLIAssert) execute() bool {
 		a.exitCode = 0
 	}
 
-	exitCodeMatches := a.exitMatcher == nil || a.exitMatcher.Matches(a.exitCode)
-	outputMatches := a.outputMatcher == nil || a.outputMatcher.Matches(a.output)
-
-	return exitCodeMatches && outputMatches
+	return checkAll(a.exitCode, a.exitMatchers, nil) &&
+		checkAll(a.output, a.outputMatchers, nil)
 }
 
 func (a *CLIAssert) check() {
 	p := a.promise
 
-	if a.exitMatcher != nil && !a.exitMatcher.Matches(a.exitCode) {
+	checkAll(a.exitCode, a.exitMatchers, func(m Matcher[int], actual int) {
 		msg := fmt.Sprintf("%s %s\n  Expected exit code: %s\n  Actual exit code: %d%s",
-			p.command, strings.Join(p.args, " "),
-			a.exitMatcher.Expected(), a.exitCode,
+			p.command, strings.Join(p.args, " "), m.Expected(), actual,
 			a.formatHelp())
 		panic(msg)
-	}
+	})
 
-	if a.outputMatcher != nil && !a.outputMatcher.Matches(a.output) {
+	checkAll(a.output, a.outputMatchers, func(m Matcher[string], actual string) {
 		msg := fmt.Sprintf("%s %s\n  Expected output: %s\n  Actual output: %q%s",
-			p.command, strings.Join(p.args, " "),
-			a.outputMatcher.Expected(), a.output,
+			p.command, strings.Join(p.args, " "), m.Expected(), actual,
 			a.formatHelp())
 		panic(msg)
-	}
+	})
 }

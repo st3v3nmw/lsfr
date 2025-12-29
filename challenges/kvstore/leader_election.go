@@ -2,11 +2,11 @@ package kvstore
 
 // Notes:
 //
-// Timing assumptions:
+// Timing:
 //   - Election timeout: 500-1,000ms (randomized)
 //   - Heartbeat interval: 100ms
-//   - Elections should complete within 2 seconds under normal conditions
-//   - Wait ≥2 seconds to verify "no leader elected" scenarios
+//   - Elections complete within 2s under normal conditions
+//   - Wait ≥2s to verify "no leader elected" scenarios
 //
 // Observability (black-box testing via APIs):
 //   - GET /cluster/info: role, term, leader, votedFor
@@ -14,7 +14,7 @@ package kvstore
 //   - POST /cluster/partition: isolate nodes (persists across restarts)
 //   - POST /cluster/heal: restore connectivity
 //
-// Possible test scenarios:
+// Scenarios:
 //   1. Leader Election Completes
 //   2. Exactly One Leader Per Term
 //   3. Leader Maintains Authority via Heartbeats

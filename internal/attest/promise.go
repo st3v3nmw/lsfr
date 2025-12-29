@@ -24,11 +24,10 @@ type Promise[P any, A any] interface {
 	Consistently() P
 	// For sets a custom timeout for Consistently operations.
 	For(time.Duration) P
-	// Returns creates an assertion to validate the operation's result.
-	Returns() A
+	// T creates an assertion to validate the operation's result.
+	T() A
 }
 
-// Compile-time type checks.
 var _ Promise[*HTTPPromise, *HTTPAssert] = (*HTTPPromise)(nil)
 var _ Promise[*CLIPromise, *CLIAssert] = (*CLIPromise)(nil)
 
@@ -101,7 +100,7 @@ func (p *HTTPPromise) For(timeout time.Duration) *HTTPPromise {
 	return p
 }
 
-func (p *HTTPPromise) Returns() *HTTPAssert {
+func (p *HTTPPromise) T() *HTTPAssert {
 	return &HTTPAssert{
 		AssertBase: AssertBase{config: p.config},
 		promise:    p,
@@ -136,7 +135,7 @@ func (p *CLIPromise) For(timeout time.Duration) *CLIPromise {
 	return p
 }
 
-func (p *CLIPromise) Returns() *CLIAssert {
+func (p *CLIPromise) T() *CLIAssert {
 	return &CLIAssert{
 		AssertBase: AssertBase{config: p.config},
 		promise:    p,

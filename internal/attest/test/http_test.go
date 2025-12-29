@@ -17,7 +17,7 @@ func TestHTTP(t *testing.T) {
 		name       string
 		handler    http.HandlerFunc
 		config     *Config
-		testFunc   func(*Do, string)
+		testFunc   func(*Do)
 		cancel     func(*Do)
 		shouldPass bool
 	}{
@@ -39,21 +39,22 @@ func TestHTTP(t *testing.T) {
 					w.WriteHeader(http.StatusNotFound)
 				}
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "PUT", "/kv/kenya:capital", "Nairobi").
-					Returns().Status(Is(200)).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "PUT", "/kv/kenya:capital", "Nairobi").T().
+					Status(Is(200)).
 					Assert("Server should handle PUT requests properly")
 
-				do.HTTP(serviceName, "GET", "/kv/kenya:capital").
-					Returns().Status(Is(200)).Body(Is("Nairobi")).
+				do.HTTP("svc", "GET", "/kv/kenya:capital").T().
+					Status(Is(200)).
+					Body(Is("Nairobi")).
 					Assert("Server should handle GET requests properly")
 
-				do.HTTP(serviceName, "PATCH", "/kv/kenya:capital").
-					Returns().Status(Is(405)).
+				do.HTTP("svc", "PATCH", "/kv/kenya:capital").T().
+					Status(Is(405)).
 					Assert("Server should return 405 for unsupported methods")
 
-				do.HTTP(serviceName, "GET", "/unknown").
-					Returns().Status(Is(404)).
+				do.HTTP("svc", "GET", "/unknown").T().
+					Status(Is(404)).
 					Assert("Server should return 404 for non-existent endpoints")
 			},
 			shouldPass: true,
@@ -63,9 +64,9 @@ func TestHTTP(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
 					Assert("Should fail when expecting 200 OK but server returns 404")
 			},
 			shouldPass: false,
@@ -75,9 +76,10 @@ func TestHTTP(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("Mombasa"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Is("Nairobi")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Is("Nairobi")).
 					Assert("Should fail when expecting 'Nairobi' but server returns 'Mombasa'")
 			},
 			shouldPass: false,
@@ -91,9 +93,10 @@ func TestHTTP(t *testing.T) {
 				w.Write([]byte("Done"))
 			},
 			config: &Config{ExecuteTimeout: 50 * time.Millisecond},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Is("Done")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Is("Done")).
 					Assert("Should fail when request times out before server responds")
 			},
 			shouldPass: false,
@@ -112,10 +115,11 @@ func TestHTTP(t *testing.T) {
 					}
 				}
 			}(),
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Eventually().
-					Returns().Status(Is(200)).Body(Is("Ready")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").
+					Eventually().T().
+					Status(Is(200)).
+					Body(Is("Ready")).
 					Assert("Service should eventually become ready")
 			},
 			shouldPass: true,
@@ -126,10 +130,11 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Write([]byte("Starting up..."))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Eventually().Within(500 * time.Millisecond).
-					Returns().Status(Is(200)).Body(Is("Ready")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").
+					Eventually().Within(500 * time.Millisecond).T().
+					Status(Is(200)).
+					Body(Is("Ready")).
 					Assert("Should fail when service never becomes ready within timeout")
 			},
 			shouldPass: false,
@@ -140,10 +145,11 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Write([]byte("Starting up..."))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Eventually().Within(time.Second).
-					Returns().Status(Is(200)).Body(Is("Ready")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").
+					Eventually().Within(time.Second).T().
+					Status(Is(200)).
+					Body(Is("Ready")).
 					Assert("Should fail when operation is cancelled before completion")
 			},
 			cancel: func(do *Do) {
@@ -160,10 +166,11 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Stable"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Consistently().For(500 * time.Millisecond).
-					Returns().Status(Is(200)).Body(Is("Stable")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").
+					Consistently().For(500 * time.Millisecond).T().
+					Status(Is(200)).
+					Body(Is("Stable")).
 					Assert("Service should remain consistently available")
 			},
 			shouldPass: true,
@@ -181,10 +188,11 @@ func TestHTTP(t *testing.T) {
 					}
 				}
 			}(),
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Consistently().
-					Returns().Status(Is(200)).Body(Is("Stable")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").
+					Consistently().T().
+					Status(Is(200)).
+					Body(Is("Stable")).
 					Assert("Should fail when service returns intermittent errors")
 			},
 			shouldPass: false,
@@ -195,10 +203,11 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Stable"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Consistently().For(3 * time.Second).
-					Returns().Status(Is(200)).Body(Is("Stable")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").
+					Consistently().For(3 * time.Second).T().
+					Status(Is(200)).
+					Body(Is("Stable")).
 					Assert("Should pass when cancelled during consistency check")
 			},
 			cancel: func(do *Do) {
@@ -215,9 +224,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Error: file not found"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Contains("file not found")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Contains("file not found")).
 					Assert("Should accept response containing the substring")
 			},
 			shouldPass: true,
@@ -228,9 +238,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Success"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Contains("error")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Contains("error")).
 					Assert("Should fail when substring is not in response")
 			},
 			shouldPass: false,
@@ -241,9 +252,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("User ID: 12345"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Matches(`User ID: \d+`)).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Matches(`User ID: \d+`)).
 					Assert("Should match regex pattern")
 			},
 			shouldPass: true,
@@ -254,9 +266,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("User ID: abc"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Matches(`User ID: \d+`)).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Matches(`User ID: \d+`)).
 					Assert("Should fail when pattern doesn't match")
 			},
 			shouldPass: false,
@@ -267,9 +280,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("value2"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(OneOf("value1", "value2", "value3")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(OneOf("value1", "value2", "value3")).
 					Assert("Should accept value2 as one of the valid options")
 			},
 			shouldPass: true,
@@ -280,9 +294,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("invalid"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(OneOf("value1", "value2", "value3")).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(OneOf("value1", "value2", "value3")).
 					Assert("Should fail when response is not in the list of valid values")
 			},
 			shouldPass: false,
@@ -293,9 +308,10 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Success"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Not(Contains("error"))).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Not(Contains("error"))).
 					Assert("Should pass when negated matcher doesn't match")
 			},
 			shouldPass: true,
@@ -306,10 +322,124 @@ func TestHTTP(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Error occurred"))
 			},
-			testFunc: func(do *Do, serviceName string) {
-				do.HTTP(serviceName, "GET", "/").
-					Returns().Status(Is(200)).Body(Not(Contains("Error"))).
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Not(Contains("Error"))).
 					Assert("Should fail when negated matcher matches")
+			},
+			shouldPass: false,
+		},
+		{
+			name: "JSON Matcher - simple field",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"role":"follower","leader":null,"term":1}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/cluster/info").T().
+					Status(Is(200)).
+					JSON("role", Is("follower")).
+					JSON("leader", IsNull[string]()).
+					JSON("term", Is("1")).
+					Assert("Should match JSON fields")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "JSON Matcher - nested path",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"entries":[{"term":1,"index":0},{"term":2,"index":1}]}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/log").T().
+					Status(Is(200)).
+					JSON("entries.0.term", Is("1")).
+					JSON("entries.1.index", Is("1")).
+					Assert("Should match nested JSON fields")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "JSON Matcher - field mismatch",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"role":"candidate","term":2}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/cluster/info").T().
+					Status(Is(200)).
+					JSON("role", Is("leader")).
+					Assert("Should fail when JSON field doesn't match")
+			},
+			shouldPass: false,
+		},
+		{
+			name: "JSON Matcher - IsNull fails when not null",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"role":"follower","leader":":8001"}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/cluster/info").T().
+					Status(Is(200)).
+					JSON("leader", IsNull[string]()).
+					Assert("Should fail when expecting null but value is not null")
+			},
+			shouldPass: false,
+		},
+		{
+			name: "Multiple Matchers - multiple status matchers",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200), Not(Is(404)), Not(Is(500))).
+					Assert("Should pass when all status matchers pass")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "Multiple Matchers - multiple body matchers",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Hello World"))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Contains("Hello"), Contains("World"), Not(Contains("Goodbye"))).
+					Assert("Should pass when all body matchers pass")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "Multiple Matchers - multiple JSON matchers on same field",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"role":"leader"}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/cluster/info").T().
+					Status(Is(200)).
+					JSON("role", Is("leader"), Not(Is("follower")), Not(Is("candidate"))).
+					Assert("Should pass when all matchers for the same JSON field pass")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "Multiple Matchers - fails when one matcher fails",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Hello World"))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(Contains("Hello"), Contains("Goodbye")).
+					Assert("Should fail when one of the matchers fails")
 			},
 			shouldPass: false,
 		},
@@ -320,7 +450,6 @@ func TestHTTP(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
 
-			serviceName := "test-service"
 			port := strings.Split(server.URL, ":")[2]
 
 			if tt.config == nil {
@@ -332,13 +461,13 @@ func TestHTTP(t *testing.T) {
 
 			success := suite.
 				Setup(func(do *Do) {
-					do.MockProcess(serviceName, port)
+					do.MockProcess("svc", port)
 					if tt.cancel != nil {
 						tt.cancel(do)
 					}
 				}).
 				Test(tt.name, func(do *Do) {
-					tt.testFunc(do, serviceName)
+					tt.testFunc(do)
 				}).
 				Run(context.Background())
 
