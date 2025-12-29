@@ -6,10 +6,13 @@ import (
 	"strings"
 )
 
-// Matcher interface for validating values.
-type Matcher[T comparable] interface {
+// Matcher is a composable predicate used in assertions to validate actual values
+// against expected conditions.
+type Matcher[T any] interface {
+	// Matches returns true if actual satisfies this matcher's condition.
 	Matches(actual T) bool
-	Expected() string // for error messages
+	// Expected returns a human-readable description of what was expected.
+	Expected() string
 }
 
 // isMatcher validates exact value matching.
@@ -28,6 +31,22 @@ func (m isMatcher[T]) Matches(actual T) bool {
 
 func (m isMatcher[T]) Expected() string {
 	return fmt.Sprintf("%v", m.value)
+}
+
+// isNullMatcher validates that a value is nil.
+type isNullMatcher struct{}
+
+// IsNull creates a matcher that checks if a value is nil.
+func IsNull() Matcher[any] {
+	return isNullMatcher{}
+}
+
+func (m isNullMatcher) Matches(actual any) bool {
+	return actual == nil
+}
+
+func (m isNullMatcher) Expected() string {
+	return "null"
 }
 
 // containsMatcher validates that a string contains a substring.
