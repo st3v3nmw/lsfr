@@ -14,13 +14,10 @@ import (
 )
 
 var (
-	green  = color.New(color.FgGreen).SprintFunc()
-	red    = color.New(color.FgRed).SprintFunc()
 	yellow = color.New(color.FgYellow).SprintFunc()
-	bold   = color.New(color.Bold).SprintFunc()
 )
 
-// createChallengeFiles creates the initial project files for a new challenge
+// createChallengeFiles creates the initial project files for a new challenge.
 func createChallengeFiles(challenge *registry.Challenge, targetPath string) error {
 	// run.sh
 	scriptPath := filepath.Join(targetPath, "run.sh")
@@ -75,7 +72,7 @@ echo "Replace this line with the command that runs your implementation."
 	return nil
 }
 
-// NewChallenge creates a new challenge in the specified directory
+// NewChallenge creates a new challenge in the specified directory.
 func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 	// Get Challenge
 	args := cmd.Args().Slice()
@@ -136,7 +133,7 @@ func isStageCompleted(stageKey string, completedStages []string) bool {
 	return false
 }
 
-// validateEnvironment checks if run.sh exists and loads the config
+// validateEnvironment checks if run.sh exists and loads the config.
 func validateEnvironment() (*config.Config, error) {
 	if _, err := os.Stat("run.sh"); os.IsNotExist(err) {
 		return nil, fmt.Errorf("run.sh not found\nCreate an executable run.sh script that starts your implementation.")
@@ -150,7 +147,7 @@ func validateEnvironment() (*config.Config, error) {
 	return cfg, nil
 }
 
-// runStageTests runs tests for a specific stage and returns success/failure
+// runStageTests runs tests for a specific stage and returns success/failure.
 func runStageTests(ctx context.Context, challengeKey, stageKey string) (bool, error) {
 	challenge, err := registry.GetChallenge(challengeKey)
 	if err != nil {
@@ -173,7 +170,7 @@ func runStageTests(ctx context.Context, challengeKey, stageKey string) (bool, er
 	return passed, nil
 }
 
-// TestStage runs tests for the current or specified stage
+// TestStage runs tests for the current or specified stage.
 func TestStage(ctx context.Context, cmd *commands.Command) error {
 	cfg, err := validateEnvironment()
 	if err != nil {
@@ -207,7 +204,7 @@ func TestStage(ctx context.Context, cmd *commands.Command) error {
 	return err
 }
 
-// NextStage advances to the next stage after verifying current stage is complete
+// NextStage advances to the next stage after verifying current stage is complete.
 func NextStage(ctx context.Context, cmd *commands.Command) error {
 	// Get Challenge
 	cfg, err := validateEnvironment()
@@ -272,7 +269,7 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	return nil
 }
 
-// ShowStatus displays the current challenge progress and next steps
+// ShowStatus displays the current challenge progress and next steps.
 func ShowStatus(ctx context.Context, cmd *commands.Command) error {
 	// Summary
 	cfg, err := config.Load()
@@ -313,7 +310,7 @@ func ShowStatus(ctx context.Context, cmd *commands.Command) error {
 	return nil
 }
 
-// ListChallenges displays all available challenges
+// ListChallenges displays all available challenges.
 func ListChallenges(ctx context.Context, cmd *commands.Command) error {
 	fmt.Printf("Available challenges:\n\n")
 

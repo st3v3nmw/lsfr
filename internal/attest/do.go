@@ -15,7 +15,7 @@ import (
 	"github.com/st3v3nmw/lsfr/pkg/threadsafe"
 )
 
-// Do provides the test harness and acts as the test runner
+// Do provides the test harness and acts as the test runner.
 type Do struct {
 	processes  *threadsafe.Map[string, *Process]
 	config     *Config
@@ -25,7 +25,7 @@ type Do struct {
 	cancel context.CancelFunc
 }
 
-// newDo creates a new Do instance with custom configuration
+// newDo creates a new Do instance with custom configuration.
 func newDo(ctx context.Context, config *Config) *Do {
 	doCtx, cancel := context.WithCancel(ctx)
 
@@ -47,7 +47,7 @@ func newDo(ctx context.Context, config *Config) *Do {
 	}
 }
 
-// Process represents a running process
+// Process represents a running process.
 type Process struct {
 	cmd     *exec.Cmd
 	args    []string
@@ -57,7 +57,7 @@ type Process struct {
 	fauxPort int
 }
 
-// getProcess retrieves a process by name or panics if not found
+// getProcess retrieves a process by name or panics if not found.
 func (do *Do) getProcess(name string) *Process {
 	if proc, exists := do.processes.Get(name); exists {
 		return proc
@@ -66,12 +66,12 @@ func (do *Do) getProcess(name string) *Process {
 	panic(fmt.Sprintf("process %q not found", name))
 }
 
-// Start starts the process with an OS-assigned port
+// Start starts the process with an OS-assigned port.
 func (do *Do) Start(name string, args ...string) {
 	do.startWithPort(name, 0, args...)
 }
 
-// startWithPort starts the process on the specified port
+// startWithPort starts the process on the specified port.
 func (do *Do) startWithPort(name string, port int, args ...string) {
 	select {
 	case <-do.ctx.Done():
@@ -118,7 +118,7 @@ func (do *Do) startWithPort(name string, port int, args ...string) {
 	do.processes.Set(name, proc)
 }
 
-// waitForPort waits for a process to accept connections on its port
+// waitForPort waits for a process to accept connections on its port.
 func (do *Do) waitForPort(proc *Process) {
 	host := fmt.Sprintf("127.0.0.1:%d", proc.realPort)
 
@@ -149,7 +149,7 @@ func (do *Do) waitForPort(proc *Process) {
 	}
 }
 
-// Stop sends SIGTERM to the process, then SIGKILL after timeout
+// Stop sends SIGTERM to the process, then SIGKILL after timeout.
 func (do *Do) Stop(name string) {
 	proc := do.getProcess(name)
 	if proc.cmd == nil || proc.cmd.Process == nil {
@@ -185,7 +185,7 @@ func (do *Do) Stop(name string) {
 	}
 }
 
-// Kill sends SIGKILL to kill the process immediately
+// Kill sends SIGKILL to kill the process immediately.
 func (do *Do) Kill(name string) {
 	proc := do.getProcess(name)
 	if proc.cmd == nil || proc.cmd.Process == nil {
@@ -205,7 +205,7 @@ func (do *Do) Kill(name string) {
 	}
 }
 
-// Restart stops the process and starts it again
+// Restart stops the process and starts it again.
 func (do *Do) Restart(name string, sig ...syscall.Signal) {
 	proc := do.getProcess(name)
 	if proc.cmd == nil {
@@ -231,7 +231,7 @@ func (do *Do) Restart(name string, sig ...syscall.Signal) {
 	do.startWithPort(name, proc.realPort, proc.args...)
 }
 
-// Done cleans up all running processes
+// Done cleans up all running processes.
 func (do *Do) Done() {
 	do.cancel()
 
@@ -246,7 +246,7 @@ func (do *Do) Done() {
 	}
 }
 
-// Concurrently runs multiple functions in parallel and waits for completion
+// Concurrently runs multiple functions in parallel and waits for completion.
 func (do *Do) Concurrently(fns ...func()) {
 	var wg sync.WaitGroup
 	var panicErr any
@@ -278,7 +278,7 @@ func (do *Do) Concurrently(fns ...func()) {
 	}
 }
 
-// HTTP creates a deferred HTTP request
+// HTTP creates a deferred HTTP request.
 func (do *Do) HTTP(name, method, path string, args ...any) *HTTPPromise {
 	proc := do.getProcess(name)
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", proc.realPort, path)
@@ -307,7 +307,7 @@ func (do *Do) HTTP(name, method, path string, args ...any) *HTTPPromise {
 	}
 }
 
-// Exec creates a deferred CLI command execution
+// Exec creates a deferred CLI command execution.
 func (do *Do) Exec(args ...string) *CLIPromise {
 	return &CLIPromise{
 		PromiseBase: PromiseBase{

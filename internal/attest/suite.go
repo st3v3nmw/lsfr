@@ -10,31 +10,30 @@ import (
 var (
 	green     = color.New(color.FgGreen).SprintFunc()
 	red       = color.New(color.FgRed).SprintFunc()
-	yellow    = color.New(color.FgYellow).SprintFunc()
 	bold      = color.New(color.Bold).SprintFunc()
 	checkMark = green("✓")
 	crossMark = red("✗")
 )
 
-// Suite represents a test suite with setup and test functions
+// Suite represents a test suite with setup and test functions.
 type Suite struct {
 	setupFn func(*Do)
 	tests   []TestFunc
 	config  *Config
 }
 
-// TestFunc represents a single test case with name and function
+// TestFunc represents a single test case with name and function.
 type TestFunc struct {
 	Name string
 	Fn   func(*Do)
 }
 
-// New creates a new empty test suite
+// New creates a new empty test suite.
 func New() *Suite {
 	return &Suite{tests: make([]TestFunc, 0)}
 }
 
-// WithConfig sets the configuration for the test suite
+// WithConfig sets the configuration for the test suite.
 func (s *Suite) WithConfig(config *Config) *Suite {
 	merged := DefaultConfig()
 
@@ -74,19 +73,19 @@ func (s *Suite) WithConfig(config *Config) *Suite {
 	return s
 }
 
-// Setup adds a setup function that runs before all tests
+// Setup adds a setup function that runs before all tests.
 func (s *Suite) Setup(fn func(*Do)) *Suite {
 	s.setupFn = fn
 	return s
 }
 
-// Test adds a test case to the suite
+// Test adds a test case to the suite.
 func (s *Suite) Test(name string, fn func(*Do)) *Suite {
 	s.tests = append(s.tests, TestFunc{Name: name, Fn: fn})
 	return s
 }
 
-// Run executes the test suite and returns results
+// Run executes the test suite and returns results.
 func (s *Suite) Run(ctx context.Context) bool {
 	config := s.config
 	if config == nil {

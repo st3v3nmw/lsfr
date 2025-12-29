@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// timing defines when deferred operations should be executed
+// timing defines when deferred operations should be executed.
 type timing int
 
 const (
@@ -14,25 +14,25 @@ const (
 	TimingConsistently
 )
 
-// Promise represents a deferred operation
+// Promise represents a deferred operation.
 type Promise[P any, A any] interface {
-	// Eventually configures the promise to retry the operation until success or timeout
+	// Eventually configures the promise to retry the operation until success or timeout.
 	Eventually() P
-	// Within sets a custom timeout for Eventually operations
+	// Within sets a custom timeout for Eventually operations.
 	Within(time.Duration) P
-	// Consistently configures the promise to verify the operation succeeds for the entire duration
+	// Consistently configures the promise to verify the operation succeeds for the entire duration.
 	Consistently() P
-	// For sets a custom timeout for Consistently operations
+	// For sets a custom timeout for Consistently operations.
 	For(time.Duration) P
-	// Returns creates an assertion to validate the operation's result
+	// Returns creates an assertion to validate the operation's result.
 	Returns() A
 }
 
-// Compile-time type checks
+// Compile-time type checks.
 var _ Promise[*HTTPPromise, *HTTPAssert] = (*HTTPPromise)(nil)
 var _ Promise[*CLIPromise, *CLIAssert] = (*CLIPromise)(nil)
 
-// PromiseBase provides common promise functionality
+// PromiseBase provides common promise functionality.
 type PromiseBase struct {
 	timing  timing
 	timeout time.Duration
@@ -68,10 +68,10 @@ func (b *PromiseBase) setFor(timeout time.Duration) {
 	b.timeout = timeout
 }
 
-// H is a convenience type for HTTP headers
+// H is a convenience type for HTTP headers.
 type H map[string]string
 
-// HTTPPromise represents a deferred HTTP request
+// HTTPPromise represents a deferred HTTP request.
 type HTTPPromise struct {
 	PromiseBase
 
@@ -108,7 +108,7 @@ func (p *HTTPPromise) Returns() *HTTPAssert {
 	}
 }
 
-// CLIPromise represents a deferred CLI command execution
+// CLIPromise represents a deferred CLI command execution.
 type CLIPromise struct {
 	PromiseBase
 

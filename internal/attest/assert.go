@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// eventually checks that the condition becomes true within the given period
+// eventually checks that the condition becomes true within the given period.
 func eventually(ctx context.Context, condition func() bool, timeout, pollInterval time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 
@@ -30,7 +30,7 @@ func eventually(ctx context.Context, condition func() bool, timeout, pollInterva
 	return false
 }
 
-// consistently checks that the condition is always true for the given period
+// consistently checks that the condition is always true for the given period.
 func consistently(ctx context.Context, condition func() bool, timeout, pollInterval time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 
@@ -51,21 +51,21 @@ func consistently(ctx context.Context, condition func() bool, timeout, pollInter
 // Assert defines the interface for executing and validating test assertions.
 // Implementations handle domain-specific operations like HTTP requests or CLI commands.
 type Assert interface {
-	// Assert executes the operation and validates the result
+	// Assert executes the operation and validates the result.
 	Assert(help string)
-	// execute executes the operation once and returns whether it meets expectations
+	// execute executes the operation once and returns whether it meets expectations.
 	execute() bool
-	// check validates the result and panics with formatted error message on failure
+	// check validates the result and panics with formatted error message on failure.
 	check()
-	// formatHelp formats help text with proper indentation for error messages
+	// formatHelp formats help text with proper indentation for error messages.
 	formatHelp() string
 }
 
-// Compile-time type checks
+// Compile-time type checks.
 var _ Assert = (*HTTPAssert)(nil)
 var _ Assert = (*CLIAssert)(nil)
 
-// AssertBase provides common assertion functionality
+// AssertBase provides common assertion functionality.
 type AssertBase struct {
 	help string
 
@@ -76,7 +76,7 @@ func (a *AssertBase) formatHelp() string {
 	return "\n\n  " + strings.ReplaceAll(a.help, "\n", "\n  ")
 }
 
-// HTTPAssert provides assertions for HTTP response validation
+// HTTPAssert provides assertions for HTTP response validation.
 type HTTPAssert struct {
 	AssertBase
 
@@ -88,13 +88,13 @@ type HTTPAssert struct {
 	bodyMatcher   Matcher[string]
 }
 
-// Status sets the expected HTTP response status code matcher
+// Status sets the expected HTTP response status code matcher.
 func (a *HTTPAssert) Status(matcher Matcher[int]) *HTTPAssert {
 	a.statusMatcher = matcher
 	return a
 }
 
-// Body sets the expected HTTP response body matcher
+// Body sets the expected HTTP response body matcher.
 func (a *HTTPAssert) Body(matcher Matcher[string]) *HTTPAssert {
 	a.bodyMatcher = matcher
 	return a
@@ -170,7 +170,7 @@ func (a *HTTPAssert) check() {
 	}
 }
 
-// CLIAssert provides CLI command output and exit code assertions
+// CLIAssert provides CLI command output and exit code assertions.
 type CLIAssert struct {
 	AssertBase
 
@@ -182,13 +182,13 @@ type CLIAssert struct {
 	outputMatcher Matcher[string]
 }
 
-// ExitCode sets the expected exit code matcher
+// ExitCode sets the expected exit code matcher.
 func (a *CLIAssert) ExitCode(matcher Matcher[int]) *CLIAssert {
 	a.exitMatcher = matcher
 	return a
 }
 
-// Output sets the expected command output matcher
+// Output sets the expected command output matcher.
 func (a *CLIAssert) Output(matcher Matcher[string]) *CLIAssert {
 	a.outputMatcher = matcher
 	return a
