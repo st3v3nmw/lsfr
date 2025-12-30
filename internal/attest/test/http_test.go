@@ -219,7 +219,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name: "Contains Matcher - matches substring",
+			name: "Contains Checker - matches substring",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Error: file not found"))
@@ -233,7 +233,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name: "Contains Matcher - fails when substring not present",
+			name: "Contains Checker - fails when substring not present",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Success"))
@@ -247,7 +247,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name: "Matches Matcher - matches regex pattern",
+			name: "Matches Checker - matches regex pattern",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("User ID: 12345"))
@@ -261,7 +261,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name: "Matches Matcher - fails when pattern doesn't match",
+			name: "Matches Checker - fails when pattern doesn't match",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("User ID: abc"))
@@ -275,7 +275,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name: "OneOf Matcher - matches one of several values",
+			name: "OneOf Checker - matches one of several values",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("value2"))
@@ -289,7 +289,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name: "OneOf Matcher - fails when value not in list",
+			name: "OneOf Checker - fails when value not in list",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("invalid"))
@@ -303,7 +303,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name: "Not Matcher - negates another matcher",
+			name: "Not Checker - negates another checker",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Success"))
@@ -312,12 +312,12 @@ func TestHTTP(t *testing.T) {
 				do.HTTP("svc", "GET", "/").T().
 					Status(Is(200)).
 					Body(Not(Contains("error"))).
-					Assert("Should pass when negated matcher doesn't match")
+					Assert("Should pass when negated checker doesn't match")
 			},
 			shouldPass: true,
 		},
 		{
-			name: "Not Matcher - fails when negated matcher matches",
+			name: "Not Checker - fails when negated checker matches",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Error occurred"))
@@ -326,12 +326,12 @@ func TestHTTP(t *testing.T) {
 				do.HTTP("svc", "GET", "/").T().
 					Status(Is(200)).
 					Body(Not(Contains("Error"))).
-					Assert("Should fail when negated matcher matches")
+					Assert("Should fail when negated checker matches")
 			},
 			shouldPass: false,
 		},
 		{
-			name: "JSON Matcher - simple field",
+			name: "JSON Checker - simple field",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"role":"follower","leader":null,"term":1}`))
@@ -347,7 +347,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name: "JSON Matcher - nested path",
+			name: "JSON Checker - nested path",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"entries":[{"term":1,"index":0},{"term":2,"index":1}]}`))
@@ -362,7 +362,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name: "JSON Matcher - field mismatch",
+			name: "JSON Checker - field mismatch",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"role":"candidate","term":2}`))
@@ -376,7 +376,7 @@ func TestHTTP(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name: "JSON Matcher - IsNull fails when not null",
+			name: "JSON Checker - IsNull fails when not null",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"role":"follower","leader":":8001"}`))
@@ -390,19 +390,19 @@ func TestHTTP(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name: "Multiple Matchers - multiple status matchers",
+			name: "Multiple Checkers - multiple status checkers",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			},
 			testFunc: func(do *Do) {
 				do.HTTP("svc", "GET", "/").T().
 					Status(Is(200), Not(Is(404)), Not(Is(500))).
-					Assert("Should pass when all status matchers pass")
+					Assert("Should pass when all status checkers pass")
 			},
 			shouldPass: true,
 		},
 		{
-			name: "Multiple Matchers - multiple body matchers",
+			name: "Multiple Checkers - multiple body checkers",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Hello World"))
@@ -411,12 +411,12 @@ func TestHTTP(t *testing.T) {
 				do.HTTP("svc", "GET", "/").T().
 					Status(Is(200)).
 					Body(Contains("Hello"), Contains("World"), Not(Contains("Goodbye"))).
-					Assert("Should pass when all body matchers pass")
+					Assert("Should pass when all body checkers pass")
 			},
 			shouldPass: true,
 		},
 		{
-			name: "Multiple Matchers - multiple JSON matchers on same field",
+			name: "Multiple Checkers - multiple JSON checkers on same field",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"role":"leader"}`))
@@ -425,12 +425,12 @@ func TestHTTP(t *testing.T) {
 				do.HTTP("svc", "GET", "/cluster/info").T().
 					Status(Is(200)).
 					JSON("role", Is("leader"), Not(Is("follower")), Not(Is("candidate"))).
-					Assert("Should pass when all matchers for the same JSON field pass")
+					Assert("Should pass when all checkers for the same JSON field pass")
 			},
 			shouldPass: true,
 		},
 		{
-			name: "Multiple Matchers - fails when one matcher fails",
+			name: "Multiple Checkers - fails when one checker fails",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Hello World"))
@@ -439,7 +439,7 @@ func TestHTTP(t *testing.T) {
 				do.HTTP("svc", "GET", "/").T().
 					Status(Is(200)).
 					Body(Contains("Hello"), Contains("Goodbye")).
-					Assert("Should fail when one of the matchers fails")
+					Assert("Should fail when one of the checkers fails")
 			},
 			shouldPass: false,
 		},

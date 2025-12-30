@@ -152,7 +152,7 @@ func TestCLI(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name:   "Contains Matcher - matches substring",
+			name:   "Contains Checker - matches substring",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Error: something went wrong").T().
@@ -163,7 +163,7 @@ func TestCLI(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name:   "Contains Matcher - fails when substring not present",
+			name:   "Contains Checker - fails when substring not present",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Success").T().
@@ -174,7 +174,7 @@ func TestCLI(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name:   "Matches Matcher - matches regex pattern",
+			name:   "Matches Checker - matches regex pattern",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Version 1.2.3").T().
@@ -185,7 +185,7 @@ func TestCLI(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name:   "Matches Matcher - fails when pattern doesn't match",
+			name:   "Matches Checker - fails when pattern doesn't match",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Version abc").T().
@@ -196,7 +196,7 @@ func TestCLI(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name:   "OneOf Matcher - matches one of several values",
+			name:   "OneOf Checker - matches one of several values",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("hello").T().
@@ -207,7 +207,7 @@ func TestCLI(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name:   "OneOf Matcher - fails when value not in list",
+			name:   "OneOf Checker - fails when value not in list",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("invalid").T().
@@ -218,56 +218,56 @@ func TestCLI(t *testing.T) {
 			shouldPass: false,
 		},
 		{
-			name:   "Not Matcher - negates another matcher",
+			name:   "Not Checker - negates another checker",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Success").T().
 					ExitCode(Is(0)).
 					Output(Not(Contains("error"))).
-					Assert("Should pass when negated matcher doesn't match")
+					Assert("Should pass when negated checker doesn't match")
 			},
 			shouldPass: true,
 		},
 		{
-			name:   "Not Matcher - fails when negated matcher matches",
+			name:   "Not Checker - fails when negated checker matches",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Error occurred").T().
 					ExitCode(Is(0)).
 					Output(Not(Contains("Error"))).
-					Assert("Should fail when negated matcher matches")
+					Assert("Should fail when negated checker matches")
 			},
 			shouldPass: false,
 		},
 		{
-			name:   "Multiple Matchers - multiple exit code matchers",
+			name:   "Multiple Checkers - multiple exit code checkers",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("test").T().
 					ExitCode(Is(0), Not(Is(1)), Not(Is(127))).
-					Assert("Should pass when all exit code matchers pass")
+					Assert("Should pass when all exit code checkers pass")
 			},
 			shouldPass: true,
 		},
 		{
-			name:   "Multiple Matchers - multiple output matchers",
+			name:   "Multiple Checkers - multiple output checkers",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Hello World").T().
 					ExitCode(Is(0)).
 					Output(Contains("Hello"), Contains("World"), Not(Contains("Goodbye"))).
-					Assert("Should pass when all output matchers pass")
+					Assert("Should pass when all output checkers pass")
 			},
 			shouldPass: true,
 		},
 		{
-			name:   "Multiple Matchers - fails when one matcher fails",
+			name:   "Multiple Checkers - fails when one checker fails",
 			config: &Config{Command: "echo"},
 			testFunc: func(do *Do) {
 				do.Exec("Hello World").T().
 					ExitCode(Is(0)).
 					Output(Contains("Hello"), Contains("Goodbye")).
-					Assert("Should fail when one of the matchers fails")
+					Assert("Should fail when one of the checkers fails")
 			},
 			shouldPass: false,
 		},

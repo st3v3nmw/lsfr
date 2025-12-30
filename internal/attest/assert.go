@@ -83,32 +83,32 @@ type HTTPAssert struct {
 	responseBody   string
 	responseStatus int
 
-	statusMatchers []Matcher[int]
-	bodyMatchers   []Matcher[string]
-	jsonMatchers   []JSONFieldMatcher
+	statusCheckers []Checker[int]
+	bodyCheckers   []Checker[string]
+	jsonCheckers   []JSONFieldChecker
 }
 
-// Status adds expected HTTP response status code matchers.
-// All matchers must pass.
-func (a *HTTPAssert) Status(matchers ...Matcher[int]) *HTTPAssert {
-	a.statusMatchers = append(a.statusMatchers, matchers...)
+// Status adds expected HTTP response status code checkers.
+// All checkers must pass.
+func (a *HTTPAssert) Status(checkers ...Checker[int]) *HTTPAssert {
+	a.statusCheckers = append(a.statusCheckers, checkers...)
 	return a
 }
 
-// Body adds expected HTTP response body matchers.
-// All matchers must pass.
-func (a *HTTPAssert) Body(matchers ...Matcher[string]) *HTTPAssert {
-	a.bodyMatchers = append(a.bodyMatchers, matchers...)
+// Body adds expected HTTP response body checkers.
+// All checkers must pass.
+func (a *HTTPAssert) Body(checkers ...Checker[string]) *HTTPAssert {
+	a.bodyCheckers = append(a.bodyCheckers, checkers...)
 	return a
 }
 
-// JSON adds expected matchers for a JSON field at the given gjson path.
-// All matchers must pass.
-func (a *HTTPAssert) JSON(path string, matchers ...Matcher[string]) *HTTPAssert {
-	for _, matcher := range matchers {
-		a.jsonMatchers = append(a.jsonMatchers, JSONFieldMatcher{
+// JSON adds expected checkers for a JSON field at the given gjson path.
+// All checkers must pass.
+func (a *HTTPAssert) JSON(path string, checkers ...Checker[string]) *HTTPAssert {
+	for _, checker := range checkers {
+		a.jsonCheckers = append(a.jsonCheckers, JSONFieldChecker{
 			Path:    path,
-			Matcher: matcher,
+			Checker: checker,
 		})
 	}
 
@@ -158,30 +158,30 @@ func (a *HTTPAssert) execute() bool {
 	a.responseBody = string(responseBody)
 	a.responseStatus = resp.StatusCode
 
-	return checkAll(a.responseStatus, a.statusMatchers, nil) &&
-		checkAll(a.responseBody, a.bodyMatchers, nil) &&
-		checkAllJSON(a.responseBody, a.jsonMatchers, nil)
+	return checkAll(a.responseStatus, a.statusCheckers, nil) &&
+		checkAll(a.responseBody, a.bodyCheckers, nil) &&
+		checkAllJSON(a.responseBody, a.jsonCheckers, nil)
 }
 
 func (a *HTTPAssert) check() {
 	p := a.promise
 
-	checkAll(a.responseStatus, a.statusMatchers, func(m Matcher[int], actual int) {
+	checkAll(a.responseStatus, a.statusCheckers, func(m Checker[int], actual int) {
 		msg := fmt.Sprintf("%s %s\n  Expected status: %s\n  Actual status: %d %s%s",
 			p.method, p.url, m.Expected(), actual,
 			http.StatusText(actual), a.formatHelp())
 		panic(msg)
 	})
 
-	checkAll(a.responseBody, a.bodyMatchers, func(m Matcher[string], actual string) {
+	checkAll(a.responseBody, a.bodyCheckers, func(m Checker[string], actual string) {
 		msg := fmt.Sprintf("%s %s\n  Expected response: %s\n  Actual response: %q%s",
 			p.method, p.url, m.Expected(), actual, a.formatHelp())
 		panic(msg)
 	})
 
-	checkAllJSON(a.responseBody, a.jsonMatchers, func(m JSONFieldMatcher, actual any) {
+	checkAllJSON(a.responseBody, a.jsonCheckers, func(m JSONFieldChecker, actual any) {
 		msg := fmt.Sprintf("%s %s\n  Expected JSON field %q: %s\n  Actual value: %v%s",
-			p.method, p.url, m.Path, m.Matcher.Expected(), actual, a.formatHelp())
+			p.method, p.url, m.Path, m.Checker.Expected(), actual, a.formatHelp())
 		panic(msg)
 	})
 }
@@ -194,21 +194,21 @@ type CLIAssert struct {
 	output   string
 	exitCode int
 
-	exitMatchers   []Matcher[int]
-	outputMatchers []Matcher[string]
+	exitCheckers   []Checker[int]
+	outputCheckers []Checker[string]
 }
 
-// ExitCode adds expected exit code matchers.
-// All matchers must pass.
-func (a *CLIAssert) ExitCode(matchers ...Matcher[int]) *CLIAssert {
-	a.exitMatchers = append(a.exitMatchers, matchers...)
+// ExitCode adds expected exit code checkers.
+// All checkers must pass.
+func (a *CLIAssert) ExitCode(checkers ...Checker[int]) *CLIAssert {
+	a.exitCheckers = append(a.exitCheckers, checkers...)
 	return a
 }
 
-// Output adds expected command output matchers.
-// All matchers must pass.
-func (a *CLIAssert) Output(matchers ...Matcher[string]) *CLIAssert {
-	a.outputMatchers = append(a.outputMatchers, matchers...)
+// Output adds expected command output checkers.
+// All checkers must pass.
+func (a *CLIAssert) Output(checkers ...Checker[string]) *CLIAssert {
+	a.outputCheckers = append(a.outputCheckers, checkers...)
 	return a
 }
 
@@ -256,21 +256,21 @@ func (a *CLIAssert) execute() bool {
 		a.exitCode = 0
 	}
 
-	return checkAll(a.exitCode, a.exitMatchers, nil) &&
-		checkAll(a.output, a.outputMatchers, nil)
+	return checkAll(a.exitCode, a.exitCheckers, nil) &&
+		checkAll(a.output, a.outputCheckers, nil)
 }
 
 func (a *CLIAssert) check() {
 	p := a.promise
 
-	checkAll(a.exitCode, a.exitMatchers, func(m Matcher[int], actual int) {
+	checkAll(a.exitCode, a.exitCheckers, func(m Checker[int], actual int) {
 		msg := fmt.Sprintf("%s %s\n  Expected exit code: %s\n  Actual exit code: %d%s",
 			p.command, strings.Join(p.args, " "), m.Expected(), actual,
 			a.formatHelp())
 		panic(msg)
 	})
 
-	checkAll(a.output, a.outputMatchers, func(m Matcher[string], actual string) {
+	checkAll(a.output, a.outputCheckers, func(m Checker[string], actual string) {
 		msg := fmt.Sprintf("%s %s\n  Expected output: %s\n  Actual output: %q%s",
 			p.command, strings.Join(p.args, " "), m.Expected(), actual,
 			a.formatHelp())
