@@ -85,7 +85,7 @@ type HTTPAssert struct {
 
 	statusCheckers []Checker[int]
 	bodyCheckers   []Checker[string]
-	jsonCheckers   []JSONFieldChecker
+	jsonCheckers   []Checker[string]
 }
 
 // Status adds expected HTTP response status code checkers.
@@ -106,10 +106,7 @@ func (a *HTTPAssert) Body(checkers ...Checker[string]) *HTTPAssert {
 // All checkers must pass.
 func (a *HTTPAssert) JSON(path string, checkers ...Checker[string]) *HTTPAssert {
 	for _, checker := range checkers {
-		a.jsonCheckers = append(a.jsonCheckers, JSONFieldChecker{
-			Path:    path,
-			Checker: checker,
-		})
+		a.jsonCheckers = append(a.jsonCheckers, JSON(path, checker))
 	}
 
 	return a
@@ -160,7 +157,7 @@ func (a *HTTPAssert) execute() bool {
 
 	return checkAll(a.responseStatus, a.statusCheckers, nil) &&
 		checkAll(a.responseBody, a.bodyCheckers, nil) &&
-		checkAllJSON(a.responseBody, a.jsonCheckers, nil)
+		checkAll(a.responseBody, a.jsonCheckers, nil)
 }
 
 func (a *HTTPAssert) check() {
@@ -179,9 +176,9 @@ func (a *HTTPAssert) check() {
 		panic(msg)
 	})
 
-	checkAllJSON(a.responseBody, a.jsonCheckers, func(m JSONFieldChecker, actual any) {
-		msg := fmt.Sprintf("%s %s\n  Expected JSON field %q: %s\n  Actual value: %v%s",
-			p.method, p.url, m.Path, m.Checker.Expected(), actual, a.formatHelp())
+	checkAll(a.responseBody, a.jsonCheckers, func(m Checker[string], actual string) {
+		msg := fmt.Sprintf("%s %s\n  Expected JSON: %s\n  Actual value: %v%s",
+			p.method, p.url, m.Expected(), actual, a.formatHelp())
 		panic(msg)
 	})
 }
