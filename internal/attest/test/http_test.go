@@ -275,6 +275,90 @@ func TestHTTP(t *testing.T) {
 			shouldPass: false,
 		},
 		{
+			name: "HasLen Checker - string body length matches",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Hello"))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(HasLen[string](5)).
+					Assert("Should pass when body length matches")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "HasLen Checker - string body length mismatch",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Hello World"))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					Body(HasLen[string](5)).
+					Assert("Should fail when body length doesn't match")
+			},
+			shouldPass: false,
+		},
+		{
+			name: "HasLen Checker - JSON array length matches",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"items":["a","b","c"]}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					JSON("items", HasLen[string](3)).
+					Assert("Should pass when JSON array length matches")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "HasLen Checker - JSON array length mismatch",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"items":["a","b","c","d","e"]}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					JSON("items", HasLen[string](3)).
+					Assert("Should fail when JSON array length doesn't match")
+			},
+			shouldPass: false,
+		},
+		{
+			name: "HasLen Checker - JSON string length matches",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"name":"Alice"}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					JSON("name", HasLen[string](5)).
+					Assert("Should pass when JSON string field length matches")
+			},
+			shouldPass: true,
+		},
+		{
+			name: "HasLen Checker - empty array",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"items":[]}`))
+			},
+			testFunc: func(do *Do) {
+				do.HTTP("svc", "GET", "/").T().
+					Status(Is(200)).
+					JSON("items", HasLen[string](0)).
+					Assert("Should pass when JSON array is empty and length is 0")
+			},
+			shouldPass: true,
+		},
+		{
 			name: "OneOf Checker - matches one of several values",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)

@@ -1,6 +1,6 @@
 # lsfr
 
-_Build complex systems from scratch_
+_Build complex systems from scratch._
 
 Progressive challenges to learn distributed systems and other complex systems by implementing them yourself.
 
