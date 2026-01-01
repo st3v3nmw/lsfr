@@ -31,11 +31,11 @@ func DefaultConfig() *Config {
 	return &Config{
 		Command:                "./run.sh",
 		WorkingDir:             ".lsfr",
-		ProcessStartTimeout:    10 * time.Second,
-		ProcessShutdownTimeout: 10 * time.Second,
+		ProcessStartTimeout:    15 * time.Second,
+		ProcessShutdownTimeout: 15 * time.Second,
 		ProcessRestartDelay:    time.Second,
 		DefaultRetryTimeout:    5 * time.Second,
 		RetryPollInterval:      100 * time.Millisecond,
-		ExecuteTimeout:         5 * time.Second,
+		ExecuteTimeout:         15 * time.Second,
 	}
 }
