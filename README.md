@@ -25,6 +25,6 @@ lsfr test
 
 Write code, run tests, get detailed feedback. Progress through stages as you build real systems.
 
-When you complete a challenge, consider tagging your repo with `lsfr-<language>` (e.g., `lsfr-go`, `lsfr-rust`) to share your implementation.
+If you're on GitHub, consider tagging your repo with `lsfr` and `lsfr-<language>` (e.g., `lsfr-go`, `lsfr-rust`) to share your implementation.
 
 Learn more at [lsfr.io](https://lsfr.io).

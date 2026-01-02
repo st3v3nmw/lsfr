@@ -154,7 +154,7 @@ func (m oneOfChecker[T]) Expected() string {
 		return "one of []"
 	}
 
-	if len(m.values) <= 5 {
+	if len(m.values) <= 4 {
 		return fmt.Sprintf("one of %v", m.values)
 	}
 
@@ -198,7 +198,7 @@ func (m JSONFieldChecker) Check(actual string) bool {
 	case isNullChecker[string]:
 		return result.Type == gjson.Null
 	case hasLenChecker[string]:
-		// For length checks, we need the actual Go value (array/slice/string)
+		// For length checks, we need the actual Go value
 		checker := m.checker.(hasLenChecker[string])
 		value := result.Value()
 		return reflect.ValueOf(value).Len() == checker.length

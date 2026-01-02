@@ -242,7 +242,7 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	// Check if already at final stage
 	if currentIndex == challenge.Len()-1 {
 		fmt.Printf("You've completed all stages for %s! 🎉\n\n", cfg.Challenge)
-		fmt.Printf("Share your work: tag your repo with 'lsfr-go' (or your language).\n\n")
+		fmt.Printf("If you're on GitHub, tag your repo with 'lsfr' and 'lsfr-<language>' (e.g., 'lsfr-go', 'lsfr-rust').\n\n")
 		fmt.Println("Consider trying another challenge at \033]8;;https://lsfr.io/\033\\lsfr.io\033]8;;\033\\")
 
 		return config.Save(cfg)
