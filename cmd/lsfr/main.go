@@ -19,11 +19,11 @@ func main() {
 		Usage: "Build complex systems from scratch",
 		Commands: []*commands.Command{
 			{
-				Name:      "new",
-				Aliases:   []string{"n"},
-				Usage:     "Start a new challenge",
+				Name:      "init",
+				Aliases:   []string{"i"},
+				Usage:     "Initialize a challenge",
 				ArgsUsage: "<challenge> [path]",
-				Action:    cli.NewChallenge,
+				Action:    cli.InitChallenge,
 			},
 			{
 				Name:      "test",

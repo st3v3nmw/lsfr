@@ -76,12 +76,12 @@ echo "Replace this line with the command that runs your implementation."
 	return nil
 }
 
-// NewChallenge creates a new challenge in the specified directory.
-func NewChallenge(ctx context.Context, cmd *commands.Command) error {
+// InitChallenge initializes a challenge in the specified directory.
+func InitChallenge(ctx context.Context, cmd *commands.Command) error {
 	// Get Challenge
 	args := cmd.Args().Slice()
 	if len(args) == 0 {
-		return fmt.Errorf("Challenge name is required.\nUsage: lsfr new <challenge> [path]")
+		return fmt.Errorf("Challenge name is required.\nUsage: lsfr init <challenge> [path]")
 	}
 
 	challengeKey := args[0]
@@ -115,7 +115,8 @@ func NewChallenge(ctx context.Context, cmd *commands.Command) error {
 
 	fmt.Println("  run.sh       - Builds and runs your implementation")
 	fmt.Println("  README.md    - Challenge overview and requirements")
-	fmt.Printf("  lsfr.yaml    - Tracks your progress\n\n")
+	fmt.Println("  lsfr.yaml    - Tracks your progress")
+	fmt.Printf("  .gitignore   - Ignores .lsfr/ working directory (server files and logs)\n\n")
 
 	firstStageKey := challenge.StageOrder[0]
 	if targetPath == "." {
@@ -323,7 +324,7 @@ func ListChallenges(ctx context.Context, cmd *commands.Command) error {
 		fmt.Printf("  %-20s - %s (%d stages)\n", key, challenge.Name, challenge.Len())
 	}
 
-	fmt.Printf("\nStart with: lsfr new <challenge-name>\n")
+	fmt.Printf("\nStart with: lsfr init <challenge-name>\n")
 
 	return nil
 }

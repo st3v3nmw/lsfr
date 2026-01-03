@@ -24,7 +24,7 @@ type Config struct {
 // Load reads and parses the lsfr.yaml configuration file.
 func Load() (*Config, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Not in a challenge directory\nRun this command from a directory created with 'lsfr new <challenge>'")
+		return nil, fmt.Errorf("Not in a challenge directory\nRun this command from a directory created with 'lsfr init <challenge>'")
 	}
 
 	bytes, err := os.ReadFile(configPath)
