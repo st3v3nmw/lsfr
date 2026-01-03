@@ -33,9 +33,10 @@ func main() {
 				Action:    cli.TestStage,
 			},
 			{
-				Name:   "next",
-				Usage:  "Advance to the next stage",
-				Action: cli.NextStage,
+				Name:    "next",
+				Aliases: []string{"n"},
+				Usage:   "Advance to the next stage",
+				Action:  cli.NextStage,
 			},
 			{
 				Name:    "status",
@@ -52,7 +53,6 @@ func main() {
 		},
 	}
 
-	// Graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -64,7 +64,6 @@ func main() {
 		cancel()
 	}()
 
-	// Run
 	err := cmd.Run(ctx, os.Args)
 	if err != nil {
 		if ctx.Err() == context.Canceled {

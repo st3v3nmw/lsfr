@@ -24,8 +24,10 @@ See [lsfr.io](https://lsfr.io/guides/cli/#installation) for version pinning and 
 Start a challenge:
 
 ```console
-$ lsfr new kv-store
-$ lsfr test
+$ lsfr list             # List available challenges
+$ lsfr init kv-store    # Create challenge in current directory
+$ lsfr test             # Test your implementation
+$ lsfr next             # Advance to the next stage
 ```
 
 ## How it Works
