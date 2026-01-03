@@ -8,17 +8,17 @@ Progressive challenges to learn distributed systems and other complex systems by
 
 Install:
 
-```bash
-go install github.com/st3v3nmw/lsfr/cmd/lsfr@latest
+```console
+$ go install github.com/st3v3nmw/lsfr/cmd/lsfr@latest
 ```
 
 See [lsfr.io](https://lsfr.io/guides/cli/#installation) for other installation methods.
 
 Start a challenge:
 
-```bash
-lsfr new kv-store
-lsfr test
+```console
+$ lsfr new kv-store
+$ lsfr test
 ```
 
 ## How it Works
