@@ -12,7 +12,14 @@ Install:
 $ go install github.com/st3v3nmw/lsfr/cmd/lsfr@latest
 ```
 
-See [lsfr.io](https://lsfr.io/guides/cli/#installation) for other installation methods.
+Or with Homebrew:
+
+```console
+$ brew tap st3v3nmw/tap
+$ brew install st3v3nmw/tap/lsfr
+```
+
+See [lsfr.io](https://lsfr.io/guides/cli/#installation) for version pinning and other installation methods.
 
 Start a challenge:
 
