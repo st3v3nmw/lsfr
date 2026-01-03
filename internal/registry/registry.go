@@ -7,6 +7,10 @@ import (
 	"github.com/st3v3nmw/lsfr/internal/attest"
 )
 
+const (
+	DocsBaseURL = "https://lsfr.io"
+)
+
 func init() {
 	log.SetFlags(0)
 }
@@ -71,7 +75,8 @@ func (c *Challenge) Len() int {
 func (c *Challenge) README() string {
 	stages := ""
 	for i, key := range c.StageOrder {
-		stages += fmt.Sprintf("%d. **%s** - %s\n", i+1, key, c.Stages[key].Name)
+		stageURL := fmt.Sprintf("%s/%s/%s/", DocsBaseURL, c.Key, key)
+		stages += fmt.Sprintf("%d. **[%s](%s)** - %s\n", i+1, key, stageURL, c.Stages[key].Name)
 	}
 
 	return fmt.Sprintf(`# %s Challenge
@@ -83,16 +88,20 @@ func (c *Challenge) README() string {
 %s
 ## Getting Started
 
-1. Edit _run.sh_ to start your implementation.
-2. Run _lsfr test_ to test the current stage.
-3. Run _lsfr next_ when ready to advance.
+1. Read the requirements for the current stage (linked above)
+2. Edit `+"`run.sh`"+` to start your implementation
+3. Run `+"`lsfr test`"+` to verify your implementation
+4. Run `+"`lsfr next`"+` to advance when tests pass
 
-## CI/CD
+## Resources
 
-Want to run tests automatically? Check out the [CI/CD guide](https://lsfr.io/guides/ci-cd/).
+- [Challenge Overview](%s/%s/)
+- [How lsfr Works](%s/how-lsfr-works/)
+- [CLI Guide](%s/guides/cli/)
+- [CI/CD Setup](%s/guides/ci-cd/)
 
-Good luck! 🚀
-`, c.Name, c.Summary, stages)
+Run `+"`lsfr --help`"+` to see all available commands.
+`, c.Name, c.Summary, stages, DocsBaseURL, c.Key, DocsBaseURL, DocsBaseURL, DocsBaseURL)
 }
 
 // RegisterChallenge registers a challenge in the global registry.

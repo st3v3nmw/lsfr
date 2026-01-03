@@ -13,6 +13,10 @@ import (
 	commands "github.com/urfave/cli/v3"
 )
 
+const (
+	DocsBaseURL = "https://lsfr.io"
+)
+
 var (
 	yellow = color.New(color.FgYellow).SprintFunc()
 )
@@ -197,8 +201,8 @@ func TestStage(ctx context.Context, cmd *commands.Command) error {
 	if passed {
 		fmt.Printf("\nRun %s to advance to the next stage.\n", yellow("'lsfr next'"))
 	} else {
-		guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", challengeKey, stageKey)
-		err = fmt.Errorf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n", guideURL, challengeKey, stageKey)
+		guideURL := fmt.Sprintf("%s/%s/%s", DocsBaseURL, challengeKey, stageKey)
+		err = fmt.Errorf("\nRead the guide: \033]8;;%s\033\\%s/%s/%s\033]8;;\033\\\n", guideURL, DocsBaseURL, challengeKey, stageKey)
 	}
 
 	return err
@@ -243,7 +247,7 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	if currentIndex == challenge.Len()-1 {
 		fmt.Printf("You've completed all stages for %s! 🎉\n\n", cfg.Challenge)
 		fmt.Printf("If you're on GitHub, consider adding 'lsfr' and 'lsfr-<language>' (e.g., 'lsfr-go', 'lsfr-rust') as topics to your repository.\n\n")
-		fmt.Println("Try another challenge at \033]8;;https://lsfr.io/\033\\lsfr.io\033]8;;\033\\")
+		fmt.Printf("Try another challenge at \033]8;;%s/\033\\%s\033]8;;\033\\\n", DocsBaseURL, DocsBaseURL)
 
 		return config.Save(cfg)
 	}
@@ -262,8 +266,8 @@ func NextStage(ctx context.Context, cmd *commands.Command) error {
 	}
 
 	fmt.Printf("Advanced to %s: %s\n\n", nextStageKey, nextStage.Name)
-	guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", cfg.Challenge, nextStageKey)
-	fmt.Printf("Read the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, nextStageKey)
+	guideURL := fmt.Sprintf("%s/%s/%s", DocsBaseURL, cfg.Challenge, nextStageKey)
+	fmt.Printf("Read the guide: \033]8;;%s\033\\%s/%s/%s\033]8;;\033\\\n\n", guideURL, DocsBaseURL, cfg.Challenge, nextStageKey)
 	fmt.Printf("Run %s when ready.\n", yellow("'lsfr test'"))
 
 	return nil
@@ -303,8 +307,8 @@ func ShowStatus(ctx context.Context, cmd *commands.Command) error {
 	}
 
 	// Next steps
-	guideURL := fmt.Sprintf("https://lsfr.io/%s/%s", cfg.Challenge, cfg.Stages.Current)
-	fmt.Printf("\nRead the guide: \033]8;;%s\033\\lsfr.io/%s/%s\033]8;;\033\\\n\n", guideURL, cfg.Challenge, cfg.Stages.Current)
+	guideURL := fmt.Sprintf("%s/%s/%s", DocsBaseURL, cfg.Challenge, cfg.Stages.Current)
+	fmt.Printf("\nRead the guide: \033]8;;%s\033\\%s/%s/%s\033]8;;\033\\\n\n", guideURL, DocsBaseURL, cfg.Challenge, cfg.Stages.Current)
 	fmt.Printf("Implement %s, then run %s.\n", cfg.Stages.Current, yellow("'lsfr test'"))
 
 	return nil

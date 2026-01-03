@@ -4,10 +4,8 @@ import "github.com/st3v3nmw/lsfr/internal/registry"
 
 func init() {
 	challenge := &registry.Challenge{
-		Name: "Distributed Key-Value Store",
-		Summary: `In this challenge, you'll build a distributed key-value store from scratch.
-You'll start with a single-node system that handles persistence and crash recovery,
-then implement Raft's leader election, log replication, and fault tolerance mechanisms.`,
+		Name:    "Distributed Key-Value Store",
+		Summary: "Build a distributed key-value store from scratch using the Raft consensus algorithm.",
 	}
 
 	challenge.AddStage("http-api", "Store and Retrieve Data", HTTPAPI)
